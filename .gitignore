@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.mypy_cache/
+
+# Conda / venv
+.conda/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (too large for git)
+data/raw/gtfs/*.zip
+data/raw/osm/*.pbf
+data/raw/osm/*.osm
+data/raw/census/*.xlsx
+data/raw/poi/*.geojson
+data/processed/**/*.parquet
+data/processed/**/*.geojson
+data/external/
+
+# Outputs
+outputs/maps/
+outputs/reports/
+outputs/figures/
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+web/.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
