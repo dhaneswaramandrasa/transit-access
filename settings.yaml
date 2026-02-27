@@ -1,0 +1,91 @@
+project:
+  name: "Transit Accessibility Index"
+  version: "0.3.0"
+  cities: ["jakarta", "hiroshima"]
+  active_city: "jakarta"
+
+paths:
+  data_raw: "data/raw"
+  data_processed: "data/processed"
+  data_external: "data/external"
+  outputs: "outputs"
+  web_data: "web/public/data"
+
+gtfs:
+  jakarta:
+    transjakarta: "data/raw/gtfs/transjakarta.zip"
+    krl: "data/raw/gtfs/krl_commuterline.zip"
+    mrt: "data/raw/gtfs/mrt_jakarta.zip"
+  hiroshima:
+    hiroden: "data/raw/gtfs/hiroshima_electric_railway.zip"
+    hiroshima_bus: "data/raw/gtfs/hiroshima_bus.zip"
+
+osm:
+  jakarta: "data/raw/osm/jakarta_indonesia.osm.pbf"
+  hiroshima: "data/raw/osm/hiroshima_japan.osm.pbf"
+  geofabrik:
+    jakarta: "https://download.geofabrik.de/asia/indonesia/java-latest.osm.pbf"
+    hiroshima: "https://download.geofabrik.de/asia/japan/chugoku-latest.osm.pbf"
+
+analysis:
+  isochrone_thresholds_minutes: [30, 60]
+  walk_speed_kmh: 4.8
+  transit_modes: ["WALK", "TRANSIT"]
+  departure_time: "2024-03-05T08:00:00"
+  crs_storage: "EPSG:4326"
+  crs_jakarta: "EPSG:32748"
+  crs_hiroshima: "EPSG:32653"
+
+  # H3 hexagonal grid — spatial unit replacing administrative kelurahan
+  # Resolution guide (Uber H3):
+  #   res 7  →  5.16 km² avg / 1.22 km edge  — district level, too coarse
+  #   res 8  →  0.74 km² avg /  461 m edge   ← DEFAULT ~9,000 hexes over Jakarta
+  #   res 9  →  0.10 km² avg /  174 m edge   — block level, ~63,000 hexes (expensive)
+  h3_resolution: 8
+
+  jakarta_bbox:
+    min_lat: -6.3701
+    min_lng: 106.6889
+    max_lat: -6.0873
+    max_lng: 107.0024
+
+  hiroshima_bbox:
+    min_lat: 34.2800
+    min_lng: 132.3500
+    max_lat: 34.5200
+    max_lng: 132.6000
+
+poi_categories:
+  hospital:
+    osm_tags: {"amenity": "hospital"}
+    weight: 3
+  clinic:
+    osm_tags: {"amenity": "clinic"}
+    weight: 2
+  market:
+    osm_tags: {"amenity": "marketplace"}
+    weight: 2
+  supermarket:
+    osm_tags: {"shop": "supermarket"}
+    weight: 2
+  school:
+    osm_tags: {"amenity": "school"}
+    weight: 1
+  park:
+    osm_tags: {"leisure": "park"}
+    weight: 1
+
+scoring:
+  normalize_method: "minmax"
+  output_scale: [0, 100]
+
+visualization:
+  center_jakarta: [-6.2088, 106.8456]
+  center_hiroshima: [34.3853, 132.4553]
+  default_zoom: 11
+  colormap: "RdYlGn"
+
+data_sources:
+  mobility_database_url: "https://database.mobilitydata.org"
+  overpass_api_url: "https://overpass-api.de/api/interpreter"
+  bps_jakarta_url: "https://jakarta.bps.go.id"
