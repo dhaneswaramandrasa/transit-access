@@ -5,10 +5,19 @@ import DeckGL from "@deck.gl/react";
 import { GeoJsonLayer, ScatterplotLayer, PathLayer } from "@deck.gl/layers";
 import MapGL from "react-map-gl/maplibre";
 import { latLngToCell } from "h3-js";
-import { useAccessibilityStore } from "@/lib/store";
+import {
+  useAccessibilityStore,
+  POI_COLORS,
+  type HexProperties,
+  type MapStats,
+  type POIFeature,
+  type ReachablePOI,
+  type POICategory,
+} from "@/lib/store";
 import { scoreToColor } from "@/lib/colorScale";
 import { useReachablePOIs } from "@/hooks/useReachablePOIs";
-import type { HexProperties, MapStats, POIFeature, ReachablePOI } from "@/lib/store";
+import { useTransitStops } from "@/hooks/useTransitStops";
+import { useDemographics } from "@/hooks/useDemographics";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const INITIAL_VIEW = {
@@ -19,20 +28,18 @@ const INITIAL_VIEW = {
   bearing: 0,
 };
 
+// Light basemap
 const BASEMAP =
-  "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json";
+  "https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json";
 
 // Must match Python config analysis.h3_resolution
 const H3_RESOLUTION = 8;
 
-// POI category → color mapping
-const POI_COLORS: Record<string, [number, number, number]> = {
-  hospital: [239, 68, 68], // red
-  clinic: [249, 115, 22], // orange
-  market: [234, 179, 8], // yellow
-  supermarket: [34, 197, 94], // green
-  school: [59, 130, 246], // blue
-  park: [16, 185, 129], // emerald
+// Transit stop colors
+const TRANSIT_STOP_COLORS: Record<string, [number, number, number]> = {
+  transjakarta: [249, 115, 22], // orange-500
+  krl: [59, 130, 246], // blue-500
+  mrt: [16, 185, 129], // emerald-500
 };
 
 type GeoJSONFeature = {
@@ -49,8 +56,8 @@ type GeoJSONData = {
 // Build a lookup map from h3_index → hex properties for O(1) click resolution
 function buildHexLookup(
   geojson: GeoJSONData
-): Map<string, HexProperties> {
-  const map = new Map<string, HexProperties>();
+): globalThis.Map<string, HexProperties> {
+  const map = new globalThis.Map<string, HexProperties>();
   for (const feature of geojson.features) {
     const p = feature.properties;
     if (p.h3_index) {
@@ -75,16 +82,23 @@ export default function AccessibilityMap() {
     setSelectedPOI,
     routes,
     activeRouteId,
+    nearbyTransitStops,
+    appPhase,
+    setAppPhase,
+    setLoadingStage,
+    setLocationName,
   } = useAccessibilityStore();
 
   const [data, setData] = useState<GeoJSONData | null>(null);
-  const [hexLookup, setHexLookup] = useState<Map<string, HexProperties>>(
-    new Map()
+  const [hexLookup, setHexLookup] = useState<globalThis.Map<string, HexProperties>>(
+    new globalThis.Map()
   );
   const [loading, setLoading] = useState(true);
 
-  // Activate the reachable POIs hook
+  // Activate hooks
   useReachablePOIs();
+  useTransitStops();
+  useDemographics();
 
   // Load hex GeoJSON
   useEffect(() => {
@@ -132,35 +146,51 @@ export default function AccessibilityMap() {
       .catch(console.error);
   }, [setAllPOIs]);
 
-  // Click handler: place pin + resolve H3 hex
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // Click handler: place pin + resolve H3 hex + trigger analysis flow
   const handleMapClick = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (info: any) => {
-      // Clicked directly on a hex feature (only when hex layer is visible/pickable)
-      if (info.object?.properties?.h3_index) {
-        const coord = info.coordinate;
-        if (coord) setClickedCoordinate([coord[0], coord[1]]);
-        setSelectedHex(info.object.properties as unknown as HexProperties);
-        return;
-      }
-
       // Clicked on a POI marker — ignore (handled by POI layer)
       if (info.layer?.id === "poi-markers") return;
+      if (info.layer?.id === "transit-stops") return;
 
-      // Clicked on empty map → resolve coordinate to H3
       if (info.coordinate) {
         const [lng, lat] = info.coordinate;
         setClickedCoordinate([lng, lat]);
+
+        // Resolve H3 hex
         const h3Index = latLngToCell(lat, lng, H3_RESOLUTION);
         const hex = hexLookup.get(h3Index);
-        if (hex) {
-          setSelectedHex(hex);
-        } else {
-          setSelectedHex(null);
+        setSelectedHex(hex || null);
+
+        // Set location name from coordinates
+        setLocationName(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+
+        // Trigger loading flow
+        if (appPhase === "landing" || appPhase === "results") {
+          setAppPhase("loading");
+          setLoadingStage("resolving");
+
+          // Simulate loading stages
+          setTimeout(() => setLoadingStage("fetching-pois"), 300);
+          setTimeout(() => setLoadingStage("fetching-transit"), 800);
+          setTimeout(() => setLoadingStage("analyzing"), 1300);
+          setTimeout(() => {
+            setLoadingStage("done");
+            setAppPhase("results");
+          }, 1800);
         }
       }
     },
-    [hexLookup, setSelectedHex, setClickedCoordinate]
+    [
+      hexLookup,
+      setSelectedHex,
+      setClickedCoordinate,
+      appPhase,
+      setAppPhase,
+      setLoadingStage,
+      setLocationName,
+    ]
   );
 
   // Hex fill color
@@ -179,6 +209,7 @@ export default function AccessibilityMap() {
   const activeRoute = activeRouteId ? routes.get(activeRouteId) : null;
 
   // Build layers bottom-to-top
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const layers: any[] = [];
 
   // 1. H3 hex overlay (toggleable opacity)
@@ -186,15 +217,18 @@ export default function AccessibilityMap() {
     layers.push(
       new GeoJsonLayer({
         id: "h3-accessibility",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: data as any,
-        opacity: hexLayerVisible ? 0.85 : 0,
+        opacity: hexLayerVisible ? 0.75 : 0,
         pickable: hexLayerVisible,
         stroked: hexLayerVisible,
         filled: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getFillColor: getColor as any,
-        getLineColor: [255, 255, 255, 20],
+        getLineColor: [0, 0, 0, 30],
         getLineWidth: 1,
         lineWidthMinPixels: 0.5,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onClick: handleMapClick as any,
         updateTriggers: {
           getFillColor: [threshold, selectedHex?.h3_index],
@@ -207,7 +241,34 @@ export default function AccessibilityMap() {
     );
   }
 
-  // 2. POI markers (when hex is selected and POIs are computed)
+  // 2. Transit stop markers
+  if (nearbyTransitStops.length > 0 && appPhase === "results") {
+    layers.push(
+      new ScatterplotLayer({
+        id: "transit-stops",
+        data: nearbyTransitStops,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getPosition: (d: any) => d.coordinates,
+        getRadius: 8,
+        radiusMinPixels: 5,
+        radiusMaxPixels: 12,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getFillColor: (d: any) => [
+          ...(TRANSIT_STOP_COLORS[d.type] || [150, 150, 150]),
+          200,
+        ],
+        getLineColor: [255, 255, 255, 200],
+        getLineWidth: 2,
+        lineWidthMinPixels: 1.5,
+        stroked: true,
+        filled: true,
+        pickable: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+    );
+  }
+
+  // 3. POI markers (when hex is selected and POIs are computed)
   if (reachablePOIs.length > 0) {
     layers.push(
       new ScatterplotLayer({
@@ -217,32 +278,36 @@ export default function AccessibilityMap() {
         getRadius: 6,
         radiusMinPixels: 4,
         radiusMaxPixels: 10,
-        getFillColor: (d: ReachablePOI) => [
-          ...(POI_COLORS[d.category] || [200, 200, 200]),
-          selectedPOI?.id === d.id ? 255 : 180,
-        ] as [number, number, number, number],
+        getFillColor: (d: ReachablePOI) =>
+          [
+            ...(POI_COLORS[d.category as POICategory] || [200, 200, 200]),
+            selectedPOI?.id === d.id ? 255 : 180,
+          ] as [number, number, number, number],
         getLineColor: [255, 255, 255, 120],
         getLineWidth: 1,
         lineWidthMinPixels: 1,
         stroked: true,
         filled: true,
         pickable: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onClick: ({ object }: any) => {
           if (object) setSelectedPOI(object as ReachablePOI);
         },
         updateTriggers: {
           getFillColor: [selectedPOI?.id],
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
     );
   }
 
-  // 3. Walking route line (when a POI is clicked and route fetched)
+  // 4. Walking route line (when a POI is clicked and route fetched)
   if (activeRoute) {
     layers.push(
       new PathLayer({
         id: "walking-route",
         data: [{ path: activeRoute.geometry }],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getPath: (d: any) => d.path,
         getColor: [59, 130, 246, 200],
         getWidth: 3,
@@ -250,27 +315,30 @@ export default function AccessibilityMap() {
         widthMaxPixels: 6,
         capRounded: true,
         jointRounded: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
     );
   }
 
-  // 4. Click pin marker (always visible when coordinate is set)
+  // 5. Click pin marker (always visible when coordinate is set)
   if (clickedCoordinate) {
     layers.push(
       new ScatterplotLayer({
         id: "click-marker",
         data: [{ position: clickedCoordinate }],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getPosition: (d: any) => d.position,
         getRadius: 8,
         radiusMinPixels: 6,
         radiusMaxPixels: 12,
-        getFillColor: [255, 255, 255, 220],
-        getLineColor: [59, 130, 246, 255],
+        getFillColor: [59, 130, 246, 220],
+        getLineColor: [255, 255, 255, 255],
         getLineWidth: 3,
         lineWidthMinPixels: 2,
         stroked: true,
         filled: true,
         pickable: false,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
     );
   }
@@ -281,17 +349,20 @@ export default function AccessibilityMap() {
         initialViewState={INITIAL_VIEW}
         controller
         layers={layers}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onClick={handleMapClick as any}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getCursor={({ isHovering }: any) =>
           isHovering ? "pointer" : "crosshair"
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getTooltip={({ object }: any) => {
-          // Hex tooltip (only when hex layer is visible)
+          // Hex tooltip
           if (object?.properties?.h3_index) {
             return {
               html: `
-                <div style="background:#1a2035;padding:8px 12px;border-radius:8px;font-size:12px;color:#fff;border:1px solid rgba(255,255,255,0.1)">
-                  <div style="color:rgba(255,255,255,0.4);font-size:10px;margin-bottom:3px">H3 · res ${H3_RESOLUTION}</div>
+                <div style="background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);padding:8px 12px;border-radius:8px;font-size:12px;color:#1e293b;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 12px rgba(0,0,0,0.1)">
+                  <div style="color:#94a3b8;font-size:10px;margin-bottom:3px">H3 · res ${H3_RESOLUTION}</div>
                   <div style="font-weight:600;font-family:monospace;font-size:11px;margin-bottom:4px">${object.properties.h3_index}</div>
                   <div>Score: <strong>${(object.properties as Record<string, unknown>)[`score_${threshold}min`] ?? "N/A"}</strong> / 100</div>
                 </div>`,
@@ -302,17 +373,36 @@ export default function AccessibilityMap() {
               },
             };
           }
-          // POI tooltip
-          if (object?.name && object?.category) {
-            const color = POI_COLORS[object.category] || [200, 200, 200];
+          // Transit stop tooltip
+          if (object?.type && object?.line && object?.name) {
+            const color = TRANSIT_STOP_COLORS[object.type] || [150, 150, 150];
             return {
               html: `
-                <div style="background:#1a2035;padding:8px 12px;border-radius:8px;font-size:12px;color:#fff;border:1px solid rgba(255,255,255,0.1)">
+                <div style="background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);padding:8px 12px;border-radius:8px;font-size:12px;color:#1e293b;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 12px rgba(0,0,0,0.1)">
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
                     <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:rgb(${color.join(",")})"></span>
                     <span style="font-weight:600">${object.name}</span>
                   </div>
-                  <div style="color:rgba(255,255,255,0.5);font-size:10px">${object.category} · ${object.distance_km} km · ~${object.walking_minutes} min walk</div>
+                  <div style="color:#94a3b8;font-size:10px">${object.line}${object.distance_km != null ? ` · ${object.distance_km} km` : ""}</div>
+                </div>`,
+              style: {
+                background: "none",
+                border: "none",
+                boxShadow: "none",
+              },
+            };
+          }
+          // POI tooltip
+          if (object?.name && object?.category) {
+            const color = POI_COLORS[object.category as POICategory] || [200, 200, 200];
+            return {
+              html: `
+                <div style="background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);padding:8px 12px;border-radius:8px;font-size:12px;color:#1e293b;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 12px rgba(0,0,0,0.1)">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:rgb(${color.join(",")})"></span>
+                    <span style="font-weight:600">${object.name}</span>
+                  </div>
+                  <div style="color:#94a3b8;font-size:10px">${object.category} · ${object.distance_km} km · ~${object.walking_minutes} min walk</div>
                 </div>`,
               style: {
                 background: "none",
@@ -327,30 +417,23 @@ export default function AccessibilityMap() {
         <MapGL mapStyle={BASEMAP} />
       </DeckGL>
 
-      {/* Click anywhere hint */}
-      {!loading && data && !selectedHex && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white/60 text-xs px-4 py-2 rounded-full pointer-events-none">
-          Click anywhere on the map to analyse that area
-        </div>
-      )}
-
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#0f1117]/80 z-10">
-          <div className="text-white/50 text-sm animate-pulse">
-            Loading Jakarta H3 grid…
+        <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-10">
+          <div className="text-slate-400 text-sm animate-pulse">
+            Loading Jakarta H3 grid...
           </div>
         </div>
       )}
 
       {!loading && !data && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#0f1117]/60">
-          <div className="bg-[#161b27] border border-white/10 rounded-xl p-6 max-w-sm text-center">
-            <p className="text-white/70 font-medium mb-2">
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/60">
+          <div className="glass-strong rounded-xl p-6 max-w-sm text-center">
+            <p className="text-slate-700 font-medium mb-2">
               Data not yet available
             </p>
-            <p className="text-white/40 text-xs leading-relaxed">
+            <p className="text-slate-400 text-xs leading-relaxed">
               Run the Python pipeline, then{" "}
-              <code className="bg-white/10 px-1 rounded">
+              <code className="bg-slate-100 px-1 rounded text-slate-600">
                 python scripts/export_to_web.py
               </code>
             </p>

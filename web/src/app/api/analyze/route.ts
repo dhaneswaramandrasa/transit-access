@@ -12,46 +12,57 @@ interface AnalyzeRequest {
   jakarta_median_score: number;
   percentile_rank: number;
   threshold: 30 | 60;
-  poi_counts: {
-    hospital: number;
-    clinic: number;
-    market: number;
-    supermarket: number;
-    school: number;
-    park: number;
+  poi_counts: Record<string, number>;
+  demographics?: {
+    population_density: number;
+    total_population: number;
+    age_distribution: Record<string, number>;
+    dominant_age_group: string;
+    kecamatan: string;
+    sex_ratio: number;
+  };
+  transit_stops?: {
+    transjakarta: number;
+    krl: number;
+    mrt: number;
+    total: number;
   };
 }
 
 function buildPrompt(data: AnalyzeRequest): string {
-  const { poi_counts, threshold } = data;
+  const { poi_counts, threshold, demographics, transit_stops } = data;
 
-  return `You are an urban transit analyst specialising in Jakarta, Indonesia. Analyse the transit accessibility of this H3 hexagon.
+  const reachable = Object.entries(poi_counts)
+    .filter(([, count]) => count > 0)
+    .map(([cat, count]) => `${cat}: ${count}`)
+    .join(", ");
 
-DATA:
-- H3 index: ${data.h3_index} (resolution ${data.h3_resolution})
-- Composite score: ${data.composite_score}/100
-- Score at ${threshold} min threshold: ${data[`score_${threshold}min` as keyof AnalyzeRequest]}/100
-- Jakarta average score: ${data.jakarta_avg_score}
-- Jakarta median score: ${data.jakarta_median_score}
-- Percentile rank: ${data.percentile_rank}th (higher = better access)
+  const missing = Object.entries(poi_counts)
+    .filter(([, count]) => count === 0)
+    .map(([cat]) => cat)
+    .join(", ");
 
-POIs reachable within ${threshold} minutes by public transit + walking:
-- Hospitals: ${poi_counts.hospital}
-- Clinics: ${poi_counts.clinic}
-- Traditional markets: ${poi_counts.market}
-- Supermarkets: ${poi_counts.supermarket}
-- Schools: ${poi_counts.school}
-- Parks: ${poi_counts.park}
+  const demoText = demographics
+    ? `Area: ${demographics.kecamatan}, ${demographics.population_density.toLocaleString()} ppl/km², mostly ${demographics.dominant_age_group}.`
+    : "";
 
-Write exactly 3 short paragraphs:
+  const transitText = transit_stops
+    ? `Transit: ${transit_stops.transjakarta} TransJakarta, ${transit_stops.krl} KRL, ${transit_stops.mrt} MRT stops nearby.`
+    : "No transit stops found nearby.";
 
-1. POI ACCESS SUMMARY: What essential services are reachable from this hex, and what's notably missing or scarce? Reference specific counts.
+  return `You are a Jakarta urban walkability analyst. Give a brief, actionable assessment.
 
-2. JAKARTA COMPARISON: How does this hex compare to the city average and median? What percentile is it in? What kind of neighbourhood might this represent (central business district, established residential, urban kampung, peripheral area)?
+Location: ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)} | Score: ${data.composite_score}/100 (${data.percentile_rank}th percentile, city avg: ${data.jakarta_avg_score})
+Reachable within ${threshold} min walk: ${reachable || "none"}
+${missing ? `Not reachable: ${missing}` : "All categories accessible."}
+${demoText}
+${transitText}
 
-3. PLANNING RECOMMENDATIONS: Give 2–3 concrete, actionable suggestions grounded in Jakarta's actual transit context (TransJakarta BRT, KRL Commuterline, MRT, angkot). Consider what realistic interventions would most improve access for residents of this hex.
+Write 2 short paragraphs (max 150 words total):
+1. How walkable is this location? What can/can't residents reach on foot or by transit within ${threshold} min? Be specific about which services are accessible and which gaps exist.
+2. One concrete recommendation to improve access, considering Jakarta's transit (TransJakarta, KRL, MRT, angkot).
 
-Keep the tone analytical but accessible. Do not use headers or bullet points — write in flowing prose. Stay under 200 words total.`;
+Be concise and direct. No headers or bullets. Flowing prose only.`;
 }
 
 export async function POST(request: Request) {
@@ -70,8 +81,8 @@ export async function POST(request: Request) {
   const prompt = buildPrompt(body);
 
   const stream = await client.messages.stream({
-    model: "claude-sonnet-4-6-20250514",
-    max_tokens: 450,
+    model: "claude-3-5-haiku-20241022",
+    max_tokens: 350,
     messages: [{ role: "user", content: prompt }],
   });
 

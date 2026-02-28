@@ -8,7 +8,11 @@
     "start": "next start",
     "lint": "next lint",
     "generate-data": "node scripts/generate-sample-data.mjs",
-    "generate-pois": "node scripts/generate-sample-pois.mjs"
+    "generate-pois": "node scripts/generate-sample-pois.mjs",
+    "generate-transit": "node scripts/generate-transit-stops.mjs",
+    "generate-demographics": "node scripts/generate-demographics.mjs",
+    "generate-all": "node scripts/generate-sample-data.mjs && node scripts/generate-sample-pois.mjs && node scripts/generate-transit-stops.mjs && node scripts/generate-demographics.mjs",
+    "postinstall": "node scripts/patch-luma.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -17,6 +21,7 @@
     "@deck.gl/react": "^9.1.0",
     "d3-scale": "^4.0.2",
     "d3-scale-chromatic": "^3.1.0",
+    "framer-motion": "^12.34.3",
     "h3-js": "^4.2.0",
     "maplibre-gl": "^4.7.0",
     "next": "14.2.20",

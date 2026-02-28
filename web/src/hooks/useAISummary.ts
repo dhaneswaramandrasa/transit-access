@@ -11,6 +11,9 @@ export function useAISummary() {
     selectedHex,
     threshold,
     mapStats,
+    clickedCoordinate,
+    demographics,
+    nearbyTransitStops,
     setAISummary,
     setAILoading,
     setAIError,
@@ -36,11 +39,33 @@ export function useAISummary() {
     resetAI();
     setAILoading(true);
 
-    const body = {
+    // Build POI counts from hex-level pre-computed routing data
+    const poiCounts: Record<string, number> = {
+      hospital: selectedHex[`hospital_${threshold}min`] ?? 0,
+      clinic: selectedHex[`clinic_${threshold}min`] ?? 0,
+      market: selectedHex[`market_${threshold}min`] ?? 0,
+      supermarket: selectedHex[`supermarket_${threshold}min`] ?? 0,
+      school: selectedHex[`school_${threshold}min`] ?? 0,
+      park: selectedHex[`park_${threshold}min`] ?? 0,
+    };
+
+    // Compute lat/lng from clicked coordinate
+    const lat = clickedCoordinate ? clickedCoordinate[1] : 0;
+    const lng = clickedCoordinate ? clickedCoordinate[0] : 0;
+
+    // Count transit stops by type
+    const transitCounts = {
+      transjakarta: nearbyTransitStops.filter((s) => s.type === "transjakarta").length,
+      krl: nearbyTransitStops.filter((s) => s.type === "krl").length,
+      mrt: nearbyTransitStops.filter((s) => s.type === "mrt").length,
+      total: nearbyTransitStops.length,
+    };
+
+    const body: Record<string, unknown> = {
       h3_index: selectedHex.h3_index,
       h3_resolution: H3_RESOLUTION,
-      lat: 0, // Will be computed from h3_index server-side if needed
-      lng: 0,
+      lat,
+      lng,
       composite_score: selectedHex.composite_score,
       score_30min: selectedHex.score_30min,
       score_60min: selectedHex.score_60min,
@@ -48,15 +73,25 @@ export function useAISummary() {
       jakarta_median_score: mapStats.median_score,
       percentile_rank: selectedHex.percentile_rank,
       threshold,
-      poi_counts: {
-        hospital: selectedHex[`hospital_${threshold}min`] ?? 0,
-        clinic: selectedHex[`clinic_${threshold}min`] ?? 0,
-        market: selectedHex[`market_${threshold}min`] ?? 0,
-        supermarket: selectedHex[`supermarket_${threshold}min`] ?? 0,
-        school: selectedHex[`school_${threshold}min`] ?? 0,
-        park: selectedHex[`park_${threshold}min`] ?? 0,
-      },
+      poi_counts: poiCounts,
     };
+
+    // Add demographics if available
+    if (demographics) {
+      body.demographics = {
+        population_density: demographics.population_density,
+        total_population: demographics.total_population,
+        age_distribution: demographics.age_distribution,
+        dominant_age_group: demographics.dominant_age_group,
+        kecamatan: demographics.kecamatan,
+        sex_ratio: demographics.sex_ratio,
+      };
+    }
+
+    // Add transit stops if available
+    if (nearbyTransitStops.length > 0) {
+      body.transit_stops = transitCounts;
+    }
 
     (async () => {
       try {
@@ -105,6 +140,9 @@ export function useAISummary() {
     threshold,
     mapStats,
     selectedHex,
+    clickedCoordinate,
+    demographics,
+    nearbyTransitStops,
     resetAI,
     setAILoading,
     setAIError,

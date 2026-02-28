@@ -1,5 +1,5 @@
 /**
- * Generate sample jakarta_pois.geojson with ~250 POIs using realistic Jakarta names.
+ * Generate sample jakarta_pois.geojson with ~400 POIs across 12 categories.
  *
  * POIs are distributed more densely in central Jakarta and sparser at the periphery.
  * Each POI gets its containing H3 index computed.
@@ -27,7 +27,7 @@ const BBOX = {
 // Central Jakarta cluster center (denser POI distribution)
 const CENTER = { lat: -6.195, lng: 106.845 };
 
-// ----- POI Name Pools -----
+// ----- POI Name Pools (12 categories) -----
 
 const HOSPITALS = [
   "RS Fatmawati", "RSUD Pasar Minggu", "RS Persahabatan", "RS Cipto Mangunkusumo",
@@ -44,7 +44,7 @@ const CLINICS = [
   "Puskesmas Tebet", "Puskesmas Kebayoran Baru", "Klinik Pratama Sehat Jaya",
   "Puskesmas Jatinegara", "Puskesmas Cempaka Putih", "Klinik Prodia Kramat",
   "Puskesmas Gambir", "Puskesmas Taman Sari", "Klinik Medika Plaza",
-  "Puskesmas Matraman", "Puskesmas Johar Baru", "Klinik Cipto Mangunkusumo Annex",
+  "Puskesmas Matraman", "Puskesmas Johar Baru", "Klinik Cipto Annex",
   "Puskesmas Pasar Rebo", "Puskesmas Ciracas", "Klinik Raya Bogor",
   "Puskesmas Koja", "Puskesmas Penjaringan", "Klinik Sunter Medika",
   "Puskesmas Kemayoran", "Puskesmas Tanah Abang", "Klinik Halim Medical",
@@ -54,6 +54,56 @@ const CLINICS = [
   "Puskesmas Grogol Petamburan", "Puskesmas Cengkareng", "Klinik Meruya Medika",
   "Puskesmas Kebon Jeruk", "Puskesmas Kembangan", "Klinik Srengseng Medika",
   "Puskesmas Pademangan", "Puskesmas Kelapa Gading",
+];
+
+const PHARMACIES = [
+  "Apotek Kimia Farma Sudirman", "Apotek K-24 Menteng", "Apotek Century Kuningan",
+  "Apotek Guardian Senayan City", "Apotek Viva Generik Tebet", "Apotek Roxy Mas",
+  "Apotek K-24 Kelapa Gading", "Apotek Kimia Farma Mangga Dua",
+  "Apotek Century Pondok Indah", "Apotek Guardian Grand Indonesia",
+  "Apotek Viva Health Cikini", "Apotek K-24 Rawamangun",
+  "Apotek Kimia Farma Fatmawati", "Apotek Century Kemang",
+  "Apotek K-24 Cengkareng", "Apotek Kimia Farma Pasar Minggu",
+  "Apotek Guardian Kota Kasablanka", "Apotek K-24 Jatinegara",
+  "Apotek Century Pluit", "Apotek Kimia Farma Tanah Abang",
+  "Apotek K-24 Cipulir", "Apotek Viva Generik Kebon Jeruk",
+  "Apotek Kimia Farma Kramat Jati", "Apotek Century Sunter",
+  "Apotek K-24 Duren Sawit", "Apotek Guardian Pacific Place",
+  "Apotek Kimia Farma Cawang", "Apotek K-24 Koja",
+  "Apotek Century Cipete", "Apotek Viva Generik Palmerah",
+];
+
+const RESTAURANTS = [
+  "RM Padang Sederhana Sudirman", "Sate Khas Senayan", "Bakmi GM Menteng",
+  "Nasi Goreng Kebon Sirih", "RM Sunda Sambara", "Soto Betawi H. Ma'ruf",
+  "Bakso Pak Kumis Tebet", "Nasi Uduk Gondangdia", "Ayam Goreng Suharti",
+  "RM Padang Garuda Falatehan", "Sate Taichan Senayan", "Warung Tekko Cikini",
+  "RM Sari Ratu Menteng", "Bakmi Golek Kelapa Gading", "Nasi Goreng Kambing Kebon Sirih",
+  "Soto Mie Bogor Rawamangun", "Bakso Solo Samrat", "Ayam Bakar Wong Solo",
+  "RM Sederhana Bintaro", "Sate Padang Ajo Ramon", "Warung Nasi Ampera",
+  "Bakmi Effata Kelapa Gading", "Nasi Kebuli Arab Tanah Abang",
+  "RM Dapur Sunda Kemang", "Soto Kudus Blok M", "Bakso Boedjangan Senopati",
+  "Nasi Goreng Mafia Tebet", "RM Betawi H. Naim Condet", "Ayam Geprek Bensu",
+  "Sate Madura Cak Eko", "Warung Bu Kris Menteng", "Bakmi Naga Mangga Besar",
+  "RM Ikan Bakar Cianjur Mampang", "Soto Lamongan Cak Har",
+  "Nasi Padang Pagi Sore Blok M", "Bakso Malang Karapitan",
+  "Ayam Presto Bu Mulyani", "Sate Kambing Pak Bari",
+  "RM Sari Bundo Gambir", "Warung Tegal Bahari",
+];
+
+const CAFES = [
+  "Starbucks Sudirman", "Kopi Kenangan Menteng", "Fore Coffee Kuningan",
+  "Janji Jiwa Tebet", "Anomali Coffee Kemang", "Djournal Coffee Senayan",
+  "Kopi Tuku Fatmawati", "Common Grounds Senopati", "Harvest Kemang",
+  "Tanamera Coffee Cipete", "Starbucks Grand Indonesia", "Kopi Kenangan Kelapa Gading",
+  "Fore Coffee Cikini", "Janji Jiwa Rawamangun", "Anomali Coffee Setiabudi",
+  "Djournal Coffee Pacific Place", "Kopi Tuku Blok M", "Flash Coffee Sudirman",
+  "Kopi Kenangan Mangga Dua", "Starbucks Pondok Indah",
+  "Fore Coffee Tanah Abang", "Janji Jiwa Cengkareng",
+  "Anomali Coffee Blok M", "Kopi Kenangan Pasar Minggu",
+  "Starbucks Kota Kasablanka", "Fore Coffee Jatinegara",
+  "Janji Jiwa Sunter", "Kopi Kenangan Cipulir",
+  "Flash Coffee Kebayoran", "Tanamera Coffee Menteng",
 ];
 
 const MARKETS = [
@@ -74,16 +124,16 @@ const SUPERMARKETS = [
   "Giant Pondok Indah", "Transmart Cempaka Putih", "Superindo Menteng",
   "Ranch Market Kemang", "Farmers Market Kuningan", "Hypermart Kelapa Gading",
   "Lotte Mart Fatmawati", "Giant Mampang", "Superindo Tebet",
-  "Carrefour MT Haryono", "Transmart Cilandak", "Giant Bintaro",
-  "Superindo Cikini", "Ranch Market Pesanggrahan", "Hypermart Puri",
-  "Lotte Mart Gandaria", "Giant Kramat Jati", "Superindo Rawamangun",
-  "Transmart Cengkareng", "Hypermart Sunter", "Giant Pluit",
-  "Superindo Jatinegara", "Farmers Market Pondok Indah", "Ranch Market PIK",
+  "Transmart Cilandak", "Giant Bintaro", "Superindo Cikini",
+  "Ranch Market Pesanggrahan", "Hypermart Puri", "Lotte Mart Gandaria",
+  "Giant Kramat Jati", "Superindo Rawamangun", "Transmart Cengkareng",
+  "Hypermart Sunter", "Giant Pluit", "Superindo Jatinegara",
+  "Farmers Market Pondok Indah", "Ranch Market PIK",
   "Lotte Mart Mangga Dua", "Giant Pasar Minggu", "Superindo Grogol",
   "Transmart Duren Sawit", "Hypermart Cakung", "Giant Ciracas",
   "Superindo Kemayoran", "Ranch Market Senayan", "Transmart Tanjung Priok",
-  "Giant Kalideres", "Superindo Cipete", "Hypermart Ciputat",
-  "Lotte Mart Kuningan", "Transmart Kebayoran",
+  "Giant Kalideres", "Superindo Cipete", "Lotte Mart Kuningan",
+  "Transmart Kebayoran",
 ];
 
 const SCHOOLS = [
@@ -109,6 +159,14 @@ const SCHOOLS = [
   "SDN Grogol 06", "SMPN 41 Jakarta", "SMAN 112 Jakarta",
 ];
 
+const UNIVERSITIES = [
+  "Universitas Indonesia (UI)", "Universitas Trisakti", "Universitas Bina Nusantara (BINUS)",
+  "Universitas Tarumanagara", "Universitas Atma Jaya", "Universitas Pelita Harapan",
+  "UIN Syarif Hidayatullah", "Universitas Nasional (UNAS)", "Universitas Mercu Buana",
+  "Universitas Muhammadiyah Jakarta", "STIE Jakarta", "Universitas Jayabaya",
+  "Universitas Pancasila", "Universitas Gunadarma Depok", "Institut Teknologi PLN",
+];
+
 const PARKS = [
   "Taman Suropati", "Taman Menteng", "Taman Lapangan Banteng",
   "Hutan Kota Srengseng", "Taman Cattleya", "Taman Langsat",
@@ -123,13 +181,46 @@ const PARKS = [
   "Taman Margasatwa Ragunan", "Taman Spathodea",
 ];
 
+const WORSHIP = [
+  "Masjid Istiqlal", "Gereja Katedral Jakarta", "Vihara Dharma Bhakti",
+  "Pura Adhitya Jaya Rawamangun", "Masjid Sunda Kelapa", "Gereja GPIB Immanuel",
+  "Masjid Al-Azhar Kebayoran", "Gereja Bethel Indonesia Petamburan",
+  "Masjid Cut Meutia Menteng", "Kelenteng Jin De Yuan Glodok",
+  "Masjid Agung At-Tin TMII", "Gereja Santa Theresia Menteng",
+  "Masjid Raya Pondok Indah", "Gereja Kristus Yesus Mangga Besar",
+  "Masjid Al-Ihsan Cipete", "Masjid Jamie Luar Batang",
+  "Gereja HKBP Sudirman", "Masjid An-Nur Koja",
+  "Gereja GBI Fatmawati", "Masjid Al-Ikhlas Cipulir",
+  "Kelenteng Tien Kok Sie Pasar Baru", "Masjid Baiturrahman Senen",
+  "Gereja GPIB Paulus Menteng", "Masjid Jami Al-Makmur Cikini",
+  "Masjid Al-Furqon Duren Sawit",
+];
+
+const BANKS = [
+  "Bank BCA KCP Sudirman", "Bank Mandiri Cabang Menteng", "Bank BRI Unit Tebet",
+  "Bank BNI Cabang Kuningan", "Bank BCA KCP Kelapa Gading", "Bank Mandiri Cabang Kemang",
+  "Bank BRI Unit Cengkareng", "Bank BNI Cabang Mangga Dua",
+  "Bank BCA KCP Pondok Indah", "Bank Mandiri Cabang Fatmawati",
+  "Bank BRI Unit Jatinegara", "Bank BNI Cabang Pluit",
+  "Bank BCA KCP Senayan", "Bank Mandiri Cabang Tanah Abang",
+  "Bank BRI Unit Rawamangun", "Bank BNI Cabang Kebon Jeruk",
+  "Bank BCA KCP Cikini", "Bank Mandiri Cabang Kramat Jati",
+  "Bank BRI Unit Sunter", "Bank BNI Cabang Pasar Minggu",
+];
+
 const POI_POOLS = {
   hospital: HOSPITALS,
   clinic: CLINICS,
+  pharmacy: PHARMACIES,
+  restaurant: RESTAURANTS,
+  cafe: CAFES,
   market: MARKETS,
   supermarket: SUPERMARKETS,
   school: SCHOOLS,
+  university: UNIVERSITIES,
   park: PARKS,
+  worship: WORSHIP,
+  bank: BANKS,
 };
 
 // Generate a random coordinate, biased towards center Jakarta
@@ -154,7 +245,7 @@ function randomCoord() {
 }
 
 // Build features
-console.log("Generating sample POIs for Jakarta...");
+console.log("Generating sample POIs for Jakarta (12 categories)...");
 
 const features = [];
 let poiId = 0;
