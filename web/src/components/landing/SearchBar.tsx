@@ -93,7 +93,7 @@ export default function SearchBar() {
           type="text"
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
-          placeholder="Search a location in Jakarta..."
+          placeholder="Search a location in Jabodetabek..."
           className="flex-1 bg-transparent outline-none text-slate-800 placeholder-slate-400 text-sm"
         />
         {loading && (

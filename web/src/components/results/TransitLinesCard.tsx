@@ -19,18 +19,25 @@ const TRANSIT_COLORS: Record<string, { bg: string; text: string; dot: string }> 
     text: "text-emerald-700",
     dot: "bg-emerald-500",
   },
+  lrt: {
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    dot: "bg-purple-500",
+  },
 };
 
 const TRANSIT_LABELS: Record<string, string> = {
   transjakarta: "TransJakarta",
   krl: "KRL Commuterline",
   mrt: "MRT Jakarta",
+  lrt: "LRT Jabodebek",
 };
 
 const TRANSIT_ICONS: Record<string, string> = {
   transjakarta: "🚌",
   krl: "🚆",
   mrt: "🚇",
+  lrt: "🚈",
 };
 
 export default function TransitLinesCard({ delay = 0 }: { delay?: number }) {
@@ -58,21 +65,21 @@ export default function TransitLinesCard({ delay = 0 }: { delay?: number }) {
           {/* Summary badges */}
           <div className="flex flex-wrap gap-2">
             {Object.entries(grouped).map(([type, stops]) => {
-              const style = TRANSIT_COLORS[type];
+              const style = TRANSIT_COLORS[type] || TRANSIT_COLORS.krl;
               return (
                 <div
                   key={type}
                   className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
                 >
-                  <span>{TRANSIT_ICONS[type]}</span>
-                  {stops.length} {TRANSIT_LABELS[type]}
+                  <span>{TRANSIT_ICONS[type] || "🚉"}</span>
+                  {stops.length} {TRANSIT_LABELS[type] || type}
                 </div>
               );
             })}
           </div>
 
           {/* Stop list by type */}
-          {(["mrt", "krl", "transjakarta"] as const).map((type) => {
+          {(["mrt", "lrt", "krl", "transjakarta"] as const).map((type) => {
             const stops = grouped[type];
             if (!stops || stops.length === 0) return null;
             const style = TRANSIT_COLORS[type];

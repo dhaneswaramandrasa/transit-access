@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { useAccessibilityStore } from "@/lib/store";
 
-// Must match Python config analysis.h3_resolution
 const H3_RESOLUTION = 8;
 
 export function useAISummary() {
@@ -27,11 +26,9 @@ export function useAISummary() {
   useEffect(() => {
     if (!selectedHex || !mapStats) return;
 
-    // Skip if same hex
     if (prevHexRef.current === selectedHex.h3_index) return;
     prevHexRef.current = selectedHex.h3_index;
 
-    // Abort previous request
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -39,7 +36,6 @@ export function useAISummary() {
     resetAI();
     setAILoading(true);
 
-    // Build POI counts from hex-level pre-computed routing data
     const poiCounts: Record<string, number> = {
       hospital: selectedHex[`hospital_${threshold}min`] ?? 0,
       clinic: selectedHex[`clinic_${threshold}min`] ?? 0,
@@ -49,15 +45,14 @@ export function useAISummary() {
       park: selectedHex[`park_${threshold}min`] ?? 0,
     };
 
-    // Compute lat/lng from clicked coordinate
     const lat = clickedCoordinate ? clickedCoordinate[1] : 0;
     const lng = clickedCoordinate ? clickedCoordinate[0] : 0;
 
-    // Count transit stops by type
     const transitCounts = {
       transjakarta: nearbyTransitStops.filter((s) => s.type === "transjakarta").length,
       krl: nearbyTransitStops.filter((s) => s.type === "krl").length,
       mrt: nearbyTransitStops.filter((s) => s.type === "mrt").length,
+      lrt: nearbyTransitStops.filter((s) => s.type === "lrt").length,
       total: nearbyTransitStops.length,
     };
 
@@ -69,14 +64,24 @@ export function useAISummary() {
       composite_score: selectedHex.composite_score,
       score_30min: selectedHex.score_30min,
       score_60min: selectedHex.score_60min,
-      jakarta_avg_score: mapStats.avg_score,
-      jakarta_median_score: mapStats.median_score,
+      jabodetabek_avg_score: mapStats.avg_score,
+      jabodetabek_median_score: mapStats.median_score,
       percentile_rank: selectedHex.percentile_rank,
       threshold,
       poi_counts: poiCounts,
+      transit_need_score: selectedHex.transit_need_score ?? 0,
+      transit_accessibility_score: selectedHex.transit_accessibility_score ?? 0,
+      equity_gap: selectedHex.equity_gap ?? 0,
+      quadrant: selectedHex.quadrant ?? "car-suburb",
+      pop_total: selectedHex.pop_total ?? 0,
+      pct_dependent: selectedHex.pct_dependent ?? 0,
+      pct_zero_vehicle: selectedHex.pct_zero_vehicle ?? 0,
+      avg_njop: selectedHex.avg_njop ?? 0,
+      dist_to_transit: selectedHex.dist_to_transit ?? 999,
+      local_poi_density: selectedHex.local_poi_density ?? 0,
+      transit_shed_poi_count: selectedHex.transit_shed_poi_count ?? 0,
     };
 
-    // Add demographics if available
     if (demographics) {
       body.demographics = {
         population_density: demographics.population_density,
@@ -88,7 +93,6 @@ export function useAISummary() {
       };
     }
 
-    // Add transit stops if available
     if (nearbyTransitStops.length > 0) {
       body.transit_stops = transitCounts;
     }

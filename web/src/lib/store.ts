@@ -9,6 +9,41 @@ export type LoadingStage =
   | "analyzing"
   | "done";
 
+// ===== Equity Quadrant System =====
+export type EquityQuadrant =
+  | "transit-desert"
+  | "transit-ideal"
+  | "over-served"
+  | "car-suburb";
+
+export const QUADRANT_COLORS: Record<EquityQuadrant, [number, number, number]> = {
+  "transit-desert": [220, 38, 38],   // red-600 — high need, low access
+  "transit-ideal": [22, 163, 74],    // green-600 — high need, high access
+  "over-served": [59, 130, 246],     // blue-500 — low need, high access
+  "car-suburb": [251, 191, 36],      // amber-400 — low need, low access
+};
+
+export const QUADRANT_LABELS: Record<EquityQuadrant, string> = {
+  "transit-desert": "Transit Desert",
+  "transit-ideal": "Transit Ideal",
+  "over-served": "Over-Served",
+  "car-suburb": "Car Suburb",
+};
+
+export const QUADRANT_EMOJI: Record<EquityQuadrant, string> = {
+  "transit-desert": "🔴",
+  "transit-ideal": "🟢",
+  "over-served": "🔵",
+  "car-suburb": "🟡",
+};
+
+export const QUADRANT_ACTION: Record<EquityQuadrant, string> = {
+  "transit-desert": "Priority investment needed — high demand, poor supply",
+  "transit-ideal": "Maintain & optimize — transit serves those who need it",
+  "over-served": "Redirect resources — capacity exceeds local demand",
+  "car-suburb": "Monitor — low demand, low supply, car-dependent",
+};
+
 // ===== POI Categories (12) =====
 export const POI_CATEGORIES = [
   "hospital",
@@ -62,10 +97,12 @@ export const POI_LABELS: Record<POICategory, string> = {
 
 export interface HexProperties {
   h3_index: string;
+  // Legacy scoring
   composite_score: number;
   score_30min: number;
   score_60min: number;
   percentile_rank: number;
+  // POI counts per threshold
   hospital_30min: number;
   hospital_60min: number;
   clinic_30min: number;
@@ -78,6 +115,25 @@ export interface HexProperties {
   school_60min: number;
   park_30min: number;
   park_60min: number;
+  // Demand-side variables
+  pop_total: number;
+  pct_dependent: number;
+  pct_zero_vehicle: number;
+  // Socioeconomic
+  avg_njop: number;
+  is_informal_settlement: boolean;
+  // First-mile supply
+  dist_to_transit: number;
+  is_walkable_transit: boolean;
+  transit_capacity_weight: number;
+  // Destination accessibility
+  local_poi_density: number;
+  transit_shed_poi_count: number;
+  // Computed scores (0-100)
+  transit_need_score: number;
+  transit_accessibility_score: number;
+  equity_gap: number;
+  quadrant: EquityQuadrant;
 }
 
 export interface MapStats {
@@ -85,13 +141,17 @@ export interface MapStats {
   median_score: number;
   total_hexes: number;
   h3_resolution: number;
+  median_need: number;
+  median_accessibility: number;
+  avg_equity_gap: number;
+  quadrant_counts: Record<EquityQuadrant, number>;
 }
 
 export interface POIFeature {
   id: string;
   name: string;
   category: string;
-  coordinates: [number, number]; // [lng, lat]
+  coordinates: [number, number];
   h3_index: string;
 }
 
@@ -102,7 +162,7 @@ export interface ReachablePOI extends POIFeature {
 
 export interface RouteData {
   poiId: string;
-  geometry: [number, number][]; // array of [lng, lat] for PathLayer
+  geometry: [number, number][];
   distance_km: number;
   duration_minutes: number;
 }
@@ -110,9 +170,9 @@ export interface RouteData {
 export interface TransitStop {
   id: string;
   name: string;
-  type: "transjakarta" | "krl" | "mrt";
+  type: "transjakarta" | "krl" | "mrt" | "lrt";
   line: string;
-  coordinates: [number, number]; // [lng, lat]
+  coordinates: [number, number];
   distance_km?: number;
 }
 
@@ -125,143 +185,115 @@ export interface Demographics {
   age_distribution: Record<string, number>;
   dominant_age_group: string;
   sex_ratio: number;
+  pct_dependent: number;
+  pct_zero_vehicle: number;
+  avg_njop: number;
   bps_source?: string;
 }
 
 // ===== State Interface =====
 
 interface AccessibilityState {
-  // App phase
   appPhase: AppPhase;
   loadingStage: LoadingStage | null;
   searchQuery: string;
   locationName: string;
 
-  // Hex data
   selectedHex: HexProperties | null;
   threshold: 30 | 60;
   mapStats: MapStats | null;
   hexLayerVisible: boolean;
 
-  // Coordinate
-  clickedCoordinate: [number, number] | null; // [lng, lat]
+  clickedCoordinate: [number, number] | null;
 
-  // POI system
   allPOIs: POIFeature[];
   reachablePOIs: ReachablePOI[];
   selectedPOI: ReachablePOI | null;
 
-  // Route cache
   routes: Map<string, RouteData>;
   activeRouteId: string | null;
 
-  // Transit stops
   allTransitStops: TransitStop[];
   nearbyTransitStops: TransitStop[];
 
-  // Demographics
   demographicsData: Map<string, Demographics>;
   demographics: Demographics | null;
 
-  // AI analysis
   aiSummary: string;
   aiLoading: boolean;
   aiError: string | null;
 
-  // ===== Actions =====
-
-  // App phase
   setAppPhase: (phase: AppPhase) => void;
   setLoadingStage: (stage: LoadingStage | null) => void;
   setSearchQuery: (q: string) => void;
   setLocationName: (name: string) => void;
 
-  // Hex
   setSelectedHex: (hex: HexProperties | null) => void;
   setThreshold: (t: 30 | 60) => void;
   setMapStats: (s: MapStats) => void;
   setHexLayerVisible: (v: boolean) => void;
   toggleHexLayer: () => void;
 
-  // Coordinate
   setClickedCoordinate: (coord: [number, number] | null) => void;
 
-  // POI
   setAllPOIs: (pois: POIFeature[]) => void;
   setReachablePOIs: (pois: ReachablePOI[]) => void;
   setSelectedPOI: (poi: ReachablePOI | null) => void;
 
-  // Routes
   addRoute: (poiId: string, route: RouteData) => void;
   setActiveRouteId: (id: string | null) => void;
   clearRoutes: () => void;
 
-  // Transit
   setAllTransitStops: (stops: TransitStop[]) => void;
   setNearbyTransitStops: (stops: TransitStop[]) => void;
 
-  // Demographics
   setDemographicsData: (data: Map<string, Demographics>) => void;
   setDemographics: (d: Demographics | null) => void;
 
-  // AI
   setAISummary: (s: string) => void;
   setAILoading: (l: boolean) => void;
   setAIError: (e: string | null) => void;
   appendAISummary: (chunk: string) => void;
   resetAI: () => void;
 
-  // Compound: reset for new analysis
   resetForNewAnalysis: () => void;
 }
 
 export const useAccessibilityStore = create<AccessibilityState>((set) => ({
-  // App phase
   appPhase: "landing",
   loadingStage: null,
   searchQuery: "",
   locationName: "",
 
-  // Hex
   selectedHex: null,
   threshold: 30,
   mapStats: null,
   hexLayerVisible: false,
 
-  // Coordinate
   clickedCoordinate: null,
 
-  // POI
   allPOIs: [],
   reachablePOIs: [],
   selectedPOI: null,
 
-  // Routes
   routes: new Map(),
   activeRouteId: null,
 
-  // Transit
   allTransitStops: [],
   nearbyTransitStops: [],
 
-  // Demographics
   demographicsData: new Map(),
   demographics: null,
 
-  // AI
   aiSummary: "",
   aiLoading: false,
   aiError: null,
 
-  // ===== Actions =====
-
-  // App phase
   setAppPhase: (phase) => set({ appPhase: phase }),
   setLoadingStage: (stage) => set({ loadingStage: stage }),
   setSearchQuery: (q) => set({ searchQuery: q }),
   setLocationName: (name) => set({ locationName: name }),
 
-  // Hex
   setSelectedHex: (hex) => set({ selectedHex: hex }),
   setThreshold: (t) => set({ threshold: t }),
   setMapStats: (s) => set({ mapStats: s }),
@@ -269,15 +301,12 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
   toggleHexLayer: () =>
     set((state) => ({ hexLayerVisible: !state.hexLayerVisible })),
 
-  // Coordinate
   setClickedCoordinate: (coord) => set({ clickedCoordinate: coord }),
 
-  // POI
   setAllPOIs: (pois) => set({ allPOIs: pois }),
   setReachablePOIs: (pois) => set({ reachablePOIs: pois }),
   setSelectedPOI: (poi) => set({ selectedPOI: poi }),
 
-  // Routes
   addRoute: (poiId, route) =>
     set((state) => {
       const newRoutes = new Map(state.routes);
@@ -287,15 +316,12 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
   setActiveRouteId: (id) => set({ activeRouteId: id }),
   clearRoutes: () => set({ routes: new Map(), activeRouteId: null }),
 
-  // Transit
   setAllTransitStops: (stops) => set({ allTransitStops: stops }),
   setNearbyTransitStops: (stops) => set({ nearbyTransitStops: stops }),
 
-  // Demographics
   setDemographicsData: (data) => set({ demographicsData: data }),
   setDemographics: (d) => set({ demographics: d }),
 
-  // AI
   setAISummary: (s) => set({ aiSummary: s }),
   setAILoading: (l) => set({ aiLoading: l }),
   setAIError: (e) => set({ aiError: e }),
@@ -303,7 +329,6 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
     set((state) => ({ aiSummary: state.aiSummary + chunk })),
   resetAI: () => set({ aiSummary: "", aiLoading: false, aiError: null }),
 
-  // Compound
   resetForNewAnalysis: () =>
     set({
       appPhase: "landing",

@@ -51,7 +51,7 @@ export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
       </div>
 
       {/* Population estimate */}
-      <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-slate-50 rounded-lg">
+      <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-slate-50 rounded-lg">
         <svg
           className="w-4 h-4 text-slate-400"
           fill="none"
@@ -70,6 +70,31 @@ export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
           people in this hex
         </span>
       </div>
+
+      {/* Vulnerability indicators */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="px-3 py-2 bg-orange-50 rounded-lg">
+          <div className="text-lg font-bold text-orange-700">
+            {demographics.pct_dependent?.toFixed(0) ?? "N/A"}%
+          </div>
+          <div className="text-[10px] text-orange-500 uppercase">Dependent Pop</div>
+        </div>
+        <div className="px-3 py-2 bg-purple-50 rounded-lg">
+          <div className="text-lg font-bold text-purple-700">
+            {demographics.pct_zero_vehicle?.toFixed(0) ?? "N/A"}%
+          </div>
+          <div className="text-[10px] text-purple-500 uppercase">No Vehicle</div>
+        </div>
+      </div>
+
+      {/* NJOP */}
+      {demographics.avg_njop > 0 && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-slate-50 rounded-lg">
+          <span className="text-xs text-slate-500">
+            Land Value (NJOP): <strong>Rp {(demographics.avg_njop / 1000000).toFixed(1)}M</strong>/m²
+          </span>
+        </div>
+      )}
 
       {/* Age distribution stacked bar */}
       <div className="mb-3">
@@ -108,16 +133,6 @@ export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
             </span>
           </div>
         ))}
-      </div>
-
-      {/* Dominant group callout */}
-      <div className="mt-3 text-xs text-slate-500 italic">
-        Predominantly{" "}
-        <span className="font-medium text-slate-700">
-          {AGE_LABELS[demographics.dominant_age_group] ||
-            demographics.dominant_age_group}
-        </span>{" "}
-        population
       </div>
 
       {/* BPS source */}
