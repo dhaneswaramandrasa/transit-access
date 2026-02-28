@@ -30,16 +30,16 @@ export default function LandingOverlay() {
               className="text-center"
             >
               <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
-                How Walkable
+                Transit Equity
               </h1>
               <h2 className="text-4xl md:text-5xl font-bold text-blue-600 tracking-tight mt-1">
-                Is Your Location?
+                in Jabodetabek
               </h2>
               <p className="text-sm text-slate-500 mt-3 leading-relaxed max-w-xs">
-                Find out what you can reach on foot or by transit within 30 or 60 minutes
+                Explore transit accessibility and equity gaps across Jakarta, Bogor, Depok, Tangerang &amp; Bekasi
               </p>
               <p className="text-xs text-slate-400 mt-2 tracking-wide uppercase">
-                Jakarta, Indonesia
+                Jabodetabek, Indonesia
               </p>
             </motion.div>
 

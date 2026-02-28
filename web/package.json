@@ -15,7 +15,6 @@
     "postinstall": "node scripts/patch-luma.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "@deck.gl/core": "^9.1.0",
     "@deck.gl/layers": "^9.1.0",
     "@deck.gl/react": "^9.1.0",

@@ -7,7 +7,7 @@ const STAGES = [
   { key: "resolving", label: "Resolving location..." },
   { key: "fetching-pois", label: "Finding reachable places..." },
   { key: "fetching-transit", label: "Checking transit access..." },
-  { key: "analyzing", label: "Assessing walkability..." },
+  { key: "analyzing", label: "Computing equity profile..." },
 ] as const;
 
 function CheckIcon() {
@@ -67,7 +67,7 @@ export default function LoadingSequence() {
           className="relative glass-strong rounded-2xl p-8 max-w-sm w-full mx-4 shadow-xl"
         >
           <h3 className="text-lg font-semibold text-slate-800 mb-6">
-            Checking Walkability
+            Analyzing Equity
           </h3>
 
           <div className="space-y-4">

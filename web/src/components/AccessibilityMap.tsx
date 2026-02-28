@@ -8,38 +8,41 @@ import { latLngToCell } from "h3-js";
 import {
   useAccessibilityStore,
   POI_COLORS,
+  QUADRANT_LABELS,
   type HexProperties,
   type MapStats,
   type POIFeature,
   type ReachablePOI,
   type POICategory,
+  type EquityQuadrant,
 } from "@/lib/store";
-import { scoreToColor } from "@/lib/colorScale";
+import { quadrantToColor } from "@/lib/colorScale";
 import { useReachablePOIs } from "@/hooks/useReachablePOIs";
 import { useTransitStops } from "@/hooks/useTransitStops";
 import { useDemographics } from "@/hooks/useDemographics";
 import "maplibre-gl/dist/maplibre-gl.css";
 
+// Jabodetabek center
 const INITIAL_VIEW = {
-  longitude: 106.8456,
-  latitude: -6.2088,
-  zoom: 11,
+  longitude: 106.84,
+  latitude: -6.30,
+  zoom: 10,
   pitch: 0,
   bearing: 0,
 };
 
-// Light basemap
+// Basemap with labels (street names, POI names like Google Maps)
 const BASEMAP =
-  "https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json";
+  "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
-// Must match Python config analysis.h3_resolution
 const H3_RESOLUTION = 8;
 
-// Transit stop colors
+// Transit stop colors (including LRT)
 const TRANSIT_STOP_COLORS: Record<string, [number, number, number]> = {
   transjakarta: [249, 115, 22], // orange-500
   krl: [59, 130, 246], // blue-500
   mrt: [16, 185, 129], // emerald-500
+  lrt: [168, 85, 247], // purple-500
 };
 
 type GeoJSONFeature = {
@@ -53,7 +56,6 @@ type GeoJSONData = {
   features: GeoJSONFeature[];
 };
 
-// Build a lookup map from h3_index → hex properties for O(1) click resolution
 function buildHexLookup(
   geojson: GeoJSONData
 ): globalThis.Map<string, HexProperties> {
@@ -65,6 +67,11 @@ function buildHexLookup(
     }
   }
   return map;
+}
+
+function median(arr: number[]): number {
+  const sorted = [...arr].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] || 0;
 }
 
 export default function AccessibilityMap() {
@@ -95,7 +102,6 @@ export default function AccessibilityMap() {
   );
   const [loading, setLoading] = useState(true);
 
-  // Activate hooks
   useReachablePOIs();
   useTransitStops();
   useDemographics();
@@ -113,14 +119,43 @@ export default function AccessibilityMap() {
           .filter((s) => s != null && !isNaN(s))
           .sort((a, b) => a - b);
 
+        const needScores = geojson.features
+          .map((f) => f.properties.transit_need_score as number)
+          .filter((s) => s != null && !isNaN(s));
+
+        const accessScores = geojson.features
+          .map((f) => f.properties.transit_accessibility_score as number)
+          .filter((s) => s != null && !isNaN(s));
+
+        const equityGaps = geojson.features
+          .map((f) => f.properties.equity_gap as number)
+          .filter((s) => s != null && !isNaN(s));
+
+        // Count quadrants
+        const quadrantCounts: Record<EquityQuadrant, number> = {
+          "transit-desert": 0,
+          "transit-ideal": 0,
+          "over-served": 0,
+          "car-suburb": 0,
+        };
+        for (const f of geojson.features) {
+          const q = f.properties.quadrant as EquityQuadrant;
+          if (q && quadrantCounts[q] !== undefined) {
+            quadrantCounts[q]++;
+          }
+        }
+
         const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-        const median = scores[Math.floor(scores.length / 2)];
 
         const stats: MapStats = {
           avg_score: Math.round(avg * 10) / 10,
-          median_score: Math.round(median * 10) / 10,
+          median_score: Math.round(median(scores) * 10) / 10,
           total_hexes: scores.length,
           h3_resolution: H3_RESOLUTION,
+          median_need: Math.round(median(needScores) * 10) / 10,
+          median_accessibility: Math.round(median(accessScores) * 10) / 10,
+          avg_equity_gap: Math.round((equityGaps.reduce((a, b) => a + b, 0) / equityGaps.length) * 10) / 10,
+          quadrant_counts: quadrantCounts,
         };
         setMapStats(stats);
         setLoading(false);
@@ -146,11 +181,10 @@ export default function AccessibilityMap() {
       .catch(console.error);
   }, [setAllPOIs]);
 
-  // Click handler: place pin + resolve H3 hex + trigger analysis flow
+  // Click handler
   const handleMapClick = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (info: any) => {
-      // Clicked on a POI marker — ignore (handled by POI layer)
       if (info.layer?.id === "poi-markers") return;
       if (info.layer?.id === "transit-stops") return;
 
@@ -158,20 +192,16 @@ export default function AccessibilityMap() {
         const [lng, lat] = info.coordinate;
         setClickedCoordinate([lng, lat]);
 
-        // Resolve H3 hex
         const h3Index = latLngToCell(lat, lng, H3_RESOLUTION);
         const hex = hexLookup.get(h3Index);
         setSelectedHex(hex || null);
 
-        // Set location name from coordinates
         setLocationName(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
 
-        // Trigger loading flow
         if (appPhase === "landing" || appPhase === "results") {
           setAppPhase("loading");
           setLoadingStage("resolving");
 
-          // Simulate loading stages
           setTimeout(() => setLoadingStage("fetching-pois"), 300);
           setTimeout(() => setLoadingStage("fetching-transit"), 800);
           setTimeout(() => setLoadingStage("analyzing"), 1300);
@@ -193,26 +223,28 @@ export default function AccessibilityMap() {
     ]
   );
 
-  // Hex fill color
+  // Hex fill color — quadrant-based
   const getColor = useCallback(
     (feature: { properties: Record<string, unknown> }) => {
-      const score =
-        (feature.properties[`score_${threshold}min`] as number) ?? 0;
+      const quadrant = feature.properties.quadrant as EquityQuadrant | undefined;
       const isSelected =
         selectedHex?.h3_index === feature.properties.h3_index;
-      return scoreToColor(score, isSelected ? 255 : 170);
+
+      if (quadrant) {
+        return quadrantToColor(quadrant, isSelected ? 255 : 170);
+      }
+      // Fallback for data without quadrant
+      return [128, 128, 128, isSelected ? 255 : 100] as [number, number, number, number];
     },
-    [threshold, selectedHex?.h3_index]
+    [selectedHex?.h3_index]
   );
 
-  // Get active route geometry for PathLayer
   const activeRoute = activeRouteId ? routes.get(activeRouteId) : null;
 
-  // Build layers bottom-to-top
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const layers: any[] = [];
 
-  // 1. H3 hex overlay (toggleable opacity)
+  // 1. H3 hex overlay
   if (data) {
     layers.push(
       new GeoJsonLayer({
@@ -231,7 +263,7 @@ export default function AccessibilityMap() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onClick: handleMapClick as any,
         updateTriggers: {
-          getFillColor: [threshold, selectedHex?.h3_index],
+          getFillColor: [selectedHex?.h3_index],
         },
         transitions: {
           opacity: 500,
@@ -268,7 +300,7 @@ export default function AccessibilityMap() {
     );
   }
 
-  // 3. POI markers (when hex is selected and POIs are computed)
+  // 3. POI markers
   if (reachablePOIs.length > 0) {
     layers.push(
       new ScatterplotLayer({
@@ -301,7 +333,7 @@ export default function AccessibilityMap() {
     );
   }
 
-  // 4. Walking route line (when a POI is clicked and route fetched)
+  // 4. Walking route line
   if (activeRoute) {
     layers.push(
       new PathLayer({
@@ -320,7 +352,7 @@ export default function AccessibilityMap() {
     );
   }
 
-  // 5. Click pin marker (always visible when coordinate is set)
+  // 5. Click pin marker
   if (clickedCoordinate) {
     layers.push(
       new ScatterplotLayer({
@@ -357,14 +389,21 @@ export default function AccessibilityMap() {
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getTooltip={({ object }: any) => {
-          // Hex tooltip
+          // Hex tooltip — show quadrant + scores
           if (object?.properties?.h3_index) {
+            const q = object.properties.quadrant as string;
+            const qLabel = q ? (QUADRANT_LABELS[q as EquityQuadrant] || q) : "Unknown";
+            const needScore = object.properties.transit_need_score ?? "N/A";
+            const accessScore = object.properties.transit_accessibility_score ?? "N/A";
+            const gap = object.properties.equity_gap;
+            const gapStr = gap != null ? gap.toFixed(1) : "N/A";
             return {
               html: `
                 <div style="background:rgba(255,255,255,0.95);backdrop-filter:blur(8px);padding:8px 12px;border-radius:8px;font-size:12px;color:#1e293b;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 12px rgba(0,0,0,0.1)">
-                  <div style="color:#94a3b8;font-size:10px;margin-bottom:3px">H3 · res ${H3_RESOLUTION}</div>
-                  <div style="font-weight:600;font-family:monospace;font-size:11px;margin-bottom:4px">${object.properties.h3_index}</div>
-                  <div>Score: <strong>${(object.properties as Record<string, unknown>)[`score_${threshold}min`] ?? "N/A"}</strong> / 100</div>
+                  <div style="color:#94a3b8;font-size:10px;margin-bottom:3px">H3 res ${H3_RESOLUTION} · ${qLabel}</div>
+                  <div style="font-weight:600;font-family:monospace;font-size:10px;margin-bottom:4px">${object.properties.h3_index}</div>
+                  <div>Need: <strong>${needScore}</strong> | Access: <strong>${accessScore}</strong></div>
+                  <div>Equity Gap: <strong>${gapStr}</strong></div>
                 </div>`,
               style: {
                 background: "none",
@@ -420,7 +459,7 @@ export default function AccessibilityMap() {
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-10">
           <div className="text-slate-400 text-sm animate-pulse">
-            Loading Jakarta H3 grid...
+            Loading Jabodetabek H3 grid...
           </div>
         </div>
       )}
@@ -432,10 +471,11 @@ export default function AccessibilityMap() {
               Data not yet available
             </p>
             <p className="text-slate-400 text-xs leading-relaxed">
-              Run the Python pipeline, then{" "}
+              Run{" "}
               <code className="bg-slate-100 px-1 rounded text-slate-600">
-                python scripts/export_to_web.py
-              </code>
+                npm run generate-all
+              </code>{" "}
+              to create sample data
             </p>
           </div>
         </div>

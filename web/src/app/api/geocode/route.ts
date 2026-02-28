@@ -4,8 +4,7 @@ import { NextRequest } from "next/server";
  * GET /api/geocode?q=Bundaran+HI
  *
  * Proxies to Nominatim for forward geocoding.
- * Bounded to Jakarta area, limited to Indonesian results.
- * Respects Nominatim usage policy (1 req/sec handled client-side).
+ * Bounded to Jabodetabek area, limited to Indonesian results.
  */
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q");
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
       q: q.trim(),
       format: "json",
       countrycodes: "id",
-      viewbox: "106.6,-5.9,107.0,-6.5",
+      viewbox: "106.48,-6.0,107.15,-6.65",
       bounded: "1",
       limit: "5",
       addressdetails: "1",
