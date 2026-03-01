@@ -34,12 +34,15 @@ export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
         Demographics
       </h3>
 
-      {/* Kecamatan + Density */}
+      {/* Kelurahan + Density */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <div className="text-sm text-slate-500">Kecamatan</div>
+          <div className="text-sm text-slate-500">Kelurahan</div>
           <div className="text-lg font-semibold text-slate-800">
-            {demographics.kecamatan}
+            {demographics.kelurahan}
+          </div>
+          <div className="text-xs text-slate-400">
+            Kec. {demographics.kecamatan}
           </div>
         </div>
         <div className="text-right">

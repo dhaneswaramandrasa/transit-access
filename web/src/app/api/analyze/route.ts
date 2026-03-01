@@ -27,6 +27,7 @@ interface AnalyzeRequest {
     total_population: number;
     age_distribution: Record<string, number>;
     dominant_age_group: string;
+    kelurahan?: string;
     kecamatan: string;
     sex_ratio: number;
   };
@@ -60,7 +61,7 @@ function buildPrompt(data: AnalyzeRequest): string {
     .join(", ");
 
   const demoText = demographics
-    ? `Area: ${demographics.kecamatan}, ${demographics.population_density.toLocaleString()} ppl/km², mostly ${demographics.dominant_age_group}.`
+    ? `Area: Kelurahan ${demographics.kelurahan || "Unknown"}, Kec. ${demographics.kecamatan}, ${demographics.population_density.toLocaleString()} ppl/km², mostly ${demographics.dominant_age_group}.`
     : "";
 
   const transitText = transit_stops

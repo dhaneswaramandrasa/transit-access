@@ -11,7 +11,8 @@
     "generate-pois": "node scripts/generate-sample-pois.mjs",
     "generate-transit": "node scripts/generate-transit-stops.mjs",
     "generate-demographics": "node scripts/generate-demographics.mjs",
-    "generate-all": "node scripts/generate-sample-data.mjs && node scripts/generate-sample-pois.mjs && node scripts/generate-transit-stops.mjs && node scripts/generate-demographics.mjs",
+    "generate-routes": "node scripts/generate-transit-routes.mjs",
+    "generate-all": "node scripts/generate-sample-data.mjs && node scripts/generate-sample-pois.mjs && node scripts/generate-transit-stops.mjs && node scripts/generate-demographics.mjs && node scripts/generate-transit-routes.mjs",
     "postinstall": "node scripts/patch-luma.mjs"
   },
   "dependencies": {

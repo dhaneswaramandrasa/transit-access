@@ -1,8 +1,9 @@
 /**
- * Generate jakarta_demographics.json with BPS-compatible demographic data.
+ * Generate jakarta_demographics.json with kelurahan-level demographic data.
  *
- * Covers Jabodetabek: DKI Jakarta + Kota/Kab Bogor, Depok, Tangerang, Bekasi.
- * New fields: pct_dependent, pct_zero_vehicle, avg_njop
+ * Covers Jabodetabek: DKI Jakarta + Kota Bogor, Depok, Tangerang, Bekasi, Tangsel.
+ * Each kecamatan is split into kelurahan with varied demographic values.
+ * Output includes both `kelurahan` and `kecamatan` fields.
  *
  * Usage: node scripts/generate-demographics.mjs
  */
@@ -13,6 +14,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// ===== Kecamatan base data (inherited by kelurahan) =====
 const BPS_KECAMATAN_DATA = {
   // Jakarta Pusat (3171)
   "Menteng":          { city_code: "3171", density_base: 19200, age_profile: "cbd", njop_base: 4500000, zero_veh_base: 35 },
@@ -117,18 +119,113 @@ const BPS_KECAMATAN_DATA = {
   "Tanah Sareal":     { city_code: "3271", density_base: 13200, age_profile: "suburban_family", njop_base: 1100000, zero_veh_base: 25 },
 };
 
-const AGE_PROFILES = {
-  cbd: { "0-14": 0.155, "15-24": 0.178, "25-44": 0.405, "45-64": 0.202, "65+": 0.060 },
-  affluent: { "0-14": 0.195, "15-24": 0.145, "25-44": 0.305, "45-64": 0.255, "65+": 0.100 },
-  dense_residential: { "0-14": 0.265, "15-24": 0.185, "25-44": 0.320, "45-64": 0.175, "65+": 0.055 },
-  residential: { "0-14": 0.230, "15-24": 0.168, "25-44": 0.332, "45-64": 0.200, "65+": 0.070 },
-  suburban_family: { "0-14": 0.275, "15-24": 0.170, "25-44": 0.335, "45-64": 0.170, "65+": 0.050 },
-  industrial: { "0-14": 0.210, "15-24": 0.195, "25-44": 0.365, "45-64": 0.180, "65+": 0.050 },
-  mixed: { "0-14": 0.225, "15-24": 0.168, "25-44": 0.332, "45-64": 0.208, "65+": 0.067 },
+// ===== Kelurahan names per kecamatan =====
+// Each kecamatan is split into its real kelurahan.
+const KELURAHAN_PER_KECAMATAN = {
+  // Jakarta Pusat
+  "Menteng": ["Menteng", "Pegangsaan", "Cikini", "Gondangdia", "Kebon Sirih"],
+  "Tanah Abang": ["Bendungan Hilir", "Karet Tengsin", "Kebon Melati", "Petamburan", "Kebon Kacang", "Kampung Bali"],
+  "Gambir": ["Gambir", "Cideng", "Petojo Selatan", "Petojo Utara", "Kebon Kelapa", "Duri Pulo"],
+  "Sawah Besar": ["Pasar Baru", "Gunung Sahari Utara", "Mangga Dua Selatan", "Karang Anyar", "Kartini"],
+  "Kemayoran": ["Kemayoran", "Kebon Kosong", "Harapan Mulia", "Serdang", "Cempaka Baru", "Utan Panjang", "Sumur Batu", "Gunung Sahari Selatan"],
+  "Senen": ["Senen", "Kenari", "Paseban", "Kramat", "Kwitang", "Bungur"],
+  "Cempaka Putih": ["Cempaka Putih Timur", "Cempaka Putih Barat", "Rawasari"],
+  "Johar Baru": ["Johar Baru", "Kampung Rawa", "Galur", "Tanah Tinggi"],
+  // Jakarta Utara
+  "Penjaringan": ["Penjaringan", "Kamal Muara", "Kapuk Muara", "Pejagalan", "Pluit"],
+  "Pademangan": ["Pademangan Barat", "Pademangan Timur", "Ancol"],
+  "Tanjung Priok": ["Tanjung Priok", "Sunter Agung", "Sunter Jaya", "Papanggo", "Sungai Bambu", "Kebon Bawang", "Warakas"],
+  "Koja": ["Koja", "Lagoa", "Rawa Badak Utara", "Rawa Badak Selatan", "Tugu Selatan", "Tugu Utara"],
+  "Kelapa Gading": ["Kelapa Gading Timur", "Kelapa Gading Barat", "Pegangsaan Dua"],
+  "Cilincing": ["Cilincing", "Semper Barat", "Semper Timur", "Sukapura", "Rorotan", "Marunda", "Kalibaru"],
+  // Jakarta Barat
+  "Cengkareng": ["Cengkareng Barat", "Cengkareng Timur", "Rawa Buaya", "Kedaung Kali Angke", "Kapuk", "Duri Kosambi"],
+  "Grogol Petamburan": ["Grogol", "Jelambar", "Jelambar Baru", "Wijaya Kusuma", "Tanjung Duren Selatan", "Tanjung Duren Utara", "Tomang"],
+  "Taman Sari": ["Taman Sari", "Krukut", "Maphar", "Tangki", "Mangga Besar", "Keagungan", "Glodok", "Pinangsia"],
+  "Tambora": ["Tambora", "Krendang", "Duri Selatan", "Duri Utara", "Kalianyar", "Jembatan Besi", "Angke", "Jembatan Lima", "Pekojan", "Roa Malaka", "Tanah Sereal"],
+  "Kebon Jeruk": ["Kebon Jeruk", "Sukabumi Selatan", "Sukabumi Utara", "Kelapa Dua", "Duri Kepa", "Kedoya Selatan", "Kedoya Utara"],
+  "Kalideres": ["Kalideres", "Semanan", "Tegal Alur", "Kamal", "Pegadungan"],
+  "Palmerah": ["Palmerah", "Slipi", "Kota Bambu Selatan", "Kota Bambu Utara", "Jati Pulo", "Kemanggisan"],
+  "Kembangan": ["Kembangan Selatan", "Kembangan Utara", "Meruya Selatan", "Meruya Utara", "Srengseng", "Joglo"],
+  // Jakarta Selatan
+  "Kebayoran Baru": ["Kebayoran Baru", "Gunung", "Kramat Pela", "Selong", "Rawa Barat", "Senayan", "Pulo", "Petogogan", "Gandaria Utara", "Cipete Utara"],
+  "Kebayoran Lama": ["Kebayoran Lama Selatan", "Kebayoran Lama Utara", "Pondok Pinang", "Cipulir", "Grogol Selatan", "Grogol Utara"],
+  "Mampang Prapatan": ["Mampang Prapatan", "Bangka", "Pela Mampang", "Tegal Parang", "Kuningan Barat"],
+  "Pancoran": ["Pancoran", "Kalibata", "Rawajati", "Duren Tiga", "Pengadegan", "Cikoko"],
+  "Tebet": ["Tebet Barat", "Tebet Timur", "Kebon Baru", "Bukit Duri", "Manggarai", "Manggarai Selatan", "Menteng Dalam"],
+  "Setiabudi": ["Setiabudi", "Karet", "Karet Semanggi", "Karet Kuningan", "Kuningan Timur", "Menteng Atas", "Pasar Manggis", "Guntur"],
+  "Pasar Minggu": ["Pasar Minggu", "Jati Padang", "Cilandak Timur", "Ragunan", "Pejaten Barat", "Pejaten Timur", "Kebagusan"],
+  "Cilandak": ["Cilandak Barat", "Lebak Bulus", "Pondok Labu", "Gandaria Selatan", "Cipete Selatan"],
+  "Pesanggrahan": ["Pesanggrahan", "Bintaro", "Ulujami"],
+  "Jagakarsa": ["Jagakarsa", "Srengseng Sawah", "Ciganjur", "Cipedak", "Lenteng Agung", "Tanjung Barat"],
+  // Jakarta Timur
+  "Matraman": ["Matraman", "Palmeriam", "Kebon Manggis", "Utan Kayu Selatan", "Utan Kayu Utara", "Kayu Manis"],
+  "Jatinegara": ["Jatinegara", "Bali Mester", "Kampung Melayu", "Bidara Cina", "Cipinang Besar Selatan", "Cipinang Besar Utara", "Cipinang Cempedak", "Cipinang Muara", "Rawa Bunga"],
+  "Pulo Gadung": ["Pulo Gadung", "Pisangan Timur", "Cipinang", "Jatinegara Kaum", "Rawamangun", "Kayu Putih", "Jati"],
+  "Kramat Jati": ["Kramat Jati", "Batu Ampar", "Bale Kambang", "Dukuh", "Cawang", "Cililitan", "Tengah"],
+  "Duren Sawit": ["Duren Sawit", "Pondok Bambu", "Pondok Kelapa", "Klender", "Malaka Sari", "Malaka Jaya", "Pondok Kopi"],
+  "Makasar": ["Makasar", "Pinang Ranti", "Kebon Pala", "Halim Perdanakusuma", "Cipinang Melayu"],
+  "Cakung": ["Cakung Barat", "Cakung Timur", "Rawa Terate", "Jatinegara Kaum Cakung", "Pulo Gebang", "Penggilingan", "Ujung Menteng"],
+  "Cipayung": ["Cipayung", "Setu", "Bambu Apus", "Ceger", "Cilangkap", "Munjul", "Pondok Ranggon", "Lubang Buaya"],
+  "Ciracas": ["Ciracas", "Kelapa Dua Wetan", "Cibubur", "Susukan", "Rambutan"],
+  "Pasar Rebo": ["Pasar Rebo", "Gedong", "Baru", "Cijantung", "Kalisari"],
+  // Depok
+  "Beji": ["Beji", "Beji Timur", "Kemiri Muka", "Pondok Cina", "Kukusan", "Tanah Baru"],
+  "Pancoran Mas": ["Pancoran Mas", "Depok", "Depok Jaya", "Rangkapan Jaya", "Rangkapan Jaya Baru", "Mampang"],
+  "Cipayung Depok": ["Cipayung", "Cipayung Jaya", "Ratu Jaya", "Bojong Pondok Terong", "Pondok Jaya"],
+  "Sukmajaya": ["Sukmajaya", "Mekarjaya", "Baktijaya", "Abadijaya", "Tirtajaya", "Cisalak"],
+  "Cilodong": ["Cilodong", "Kalibaru", "Kalimulya", "Jatimulya", "Sukamaju"],
+  "Limo": ["Limo", "Meruyung", "Grogol"],
+  "Cinere": ["Cinere", "Gandul", "Pangkalan Jati", "Pangkalan Jati Baru"],
+  "Cimanggis": ["Cimanggis", "Tugu", "Harjamukti", "Cisalak Pasar", "Mekarsari", "Curug"],
+  "Tapos": ["Tapos", "Sukatani", "Cimpaeun", "Jatijajar", "Cilangkap Depok", "Leuwinanggung"],
+  "Sawangan": ["Sawangan", "Sawangan Baru", "Cinangka", "Pengasinan", "Bedahan", "Kedaung"],
+  "Bojongsari": ["Bojongsari", "Bojongsari Baru", "Serua", "Pondok Petir", "Curug", "Duren Mekar", "Duren Seribu"],
+  // Bekasi
+  "Bekasi Timur": ["Margahayu", "Bekasi Jaya", "Duren Jaya", "Aren Jaya"],
+  "Bekasi Barat": ["Bintara", "Bintara Jaya", "Jakasampurna", "Kota Baru"],
+  "Bekasi Utara": ["Harapan Jaya", "Kaliabang Tengah", "Perwira", "Harapan Baru", "Teluk Pucung", "Marga Mulya"],
+  "Bekasi Selatan": ["Kayuringin Jaya", "Marga Jaya", "Pekayon Jaya", "Jaka Mulya", "Jaka Setia"],
+  "Rawalumbu": ["Bojong Rawalumbu", "Bojong Menteng", "Pengasinan", "Sepanjang Jaya"],
+  "Medan Satria": ["Medan Satria", "Harapan Mulya", "Pejuang", "Kali Baru"],
+  "Jatiasih": ["Jatisari", "Jatiasih", "Jatikramat", "Jatimekar", "Jatiluhur", "Jatirasa"],
+  "Bantargebang": ["Bantargebang", "Cikiwul", "Ciketing Udik", "Sumur Batu"],
+  "Mustika Jaya": ["Mustika Jaya", "Mustika Sari", "Pedurenan", "Cimuning"],
+  "Pondok Gede": ["Jati Bening", "Jati Bening Baru", "Jati Waringin", "Jati Makmur", "Jati Rahayu"],
+  "Jatisampurna": ["Jatisampurna", "Jatirangga", "Jatikarya", "Jatiraden"],
+  "Pondok Melati": ["Jati Murni", "Jati Warna", "Jati Melati", "Jati Rahayu PM"],
+  // Tangerang
+  "Tangerang": ["Tangerang", "Sukajadi", "Sukaasih", "Babakan", "Cikokol", "Kelapa Indah"],
+  "Karawaci": ["Karawaci", "Karawaci Baru", "Nusa Jaya", "Cimone", "Cimone Jaya", "Pabuaran"],
+  "Cipondoh": ["Cipondoh", "Cipondoh Indah", "Cipondoh Makmur", "Kenanga", "Gondrong", "Petir"],
+  "Ciledug": ["Ciledug", "Sudimara Barat", "Sudimara Timur", "Tajur", "Paninggilan", "Paninggilan Utara"],
+  "Pinang": ["Pinang", "Nerogtog", "Kunciran", "Kunciran Indah", "Cipete", "Kunciran Jaya"],
+  "Neglasari": ["Neglasari", "Karang Sari", "Kedaung Wetan", "Selapajang Jaya"],
+  "Batuceper": ["Batuceper", "Batujaya", "Kebon Besar", "Poris Gaga", "Poris Gaga Baru"],
+  "Benda": ["Benda", "Belendung", "Jurumudi", "Jurumudi Baru"],
+  "Jatiuwung": ["Jatiuwung", "Keroncong", "Pasir Jaya", "Gandasari", "Manis", "Alam Jaya"],
+  "Periuk": ["Periuk", "Periuk Jaya", "Gembor", "Sangiang Jaya", "Gebang Raya"],
+  "Cibodas": ["Cibodas", "Cibodas Baru", "Panunggangan", "Panunggangan Barat", "Uwung Jaya"],
+  "Larangan": ["Larangan Indah", "Larangan Selatan", "Larangan Utara", "Cipadu", "Cipadu Jaya", "Gaga", "Kreo", "Kreo Selatan"],
+  "Karang Tengah": ["Karang Tengah", "Karang Mulya", "Karang Timur", "Padurenan", "Pondok Pucung", "Parung Jaya"],
+  // Tangerang Selatan
+  "Serpong": ["Serpong", "Buaran", "Ciater", "Cilenggang", "Rawa Buntu", "Rawa Mekar Jaya", "Lengkong Gudang"],
+  "Serpong Utara": ["Pakualam", "Pondok Jagung", "Pondok Jagung Timur", "Jelupang", "Lengkong Karya", "Lengkong Wetan", "Paku Jaya"],
+  "Pondok Aren": ["Pondok Aren", "Pondok Jaya", "Pondok Karya", "Parigi", "Parigi Baru", "Jurang Mangu Barat", "Jurang Mangu Timur", "Pondok Kacang Barat", "Pondok Kacang Timur"],
+  "Ciputat": ["Ciputat", "Cipayung", "Jombang", "Sawah Baru", "Sawah Lama", "Serua"],
+  "Ciputat Timur": ["Ciputat Timur", "Cireundeu", "Pisangan", "Rempoa", "Rengas"],
+  "Pamulang": ["Pamulang Barat", "Pamulang Timur", "Pondok Benda", "Benda Baru", "Kedaung", "Bambu Apus Pamulang"],
+  "Setu": ["Setu", "Babakan", "Bakti Jaya", "Kranggan", "Muncul"],
+  // Bogor
+  "Bogor Tengah": ["Babakan", "Babakan Pasar", "Cibogor", "Gudang", "Kebon Kalapa", "Paledang", "Pabaton", "Panaragan", "Sempur", "Tegal Lega", "Ciwaringin"],
+  "Bogor Utara": ["Bantarjati", "Ciluar", "Cimahpar", "Cibuluh", "Kedung Halang", "Tanah Baru BU", "Tegal Gundil"],
+  "Bogor Selatan": ["Batutulis", "Bondongan", "Cikaret", "Cipaku", "Empang", "Harjasari", "Lawang Gintung", "Muarasari", "Pakuan", "Pamoyanan", "Ranggamekar"],
+  "Bogor Timur": ["Baranangsiang", "Katulampa", "Sindangrasa", "Sindangsari", "Sukasari", "Tajur"],
+  "Bogor Barat": ["Balungbangjaya", "Cilendek Barat", "Cilendek Timur", "Curug Mekar", "Curug", "Loji", "Margajaya", "Menteng BB", "Pasir Kuda", "Pasir Mulya", "Semplak", "Sindang Barang", "Situgede"],
+  "Tanah Sareal": ["Cibadak", "Kedung Badak", "Kedung Jaya", "Kedung Waringin", "Kebon Pedes", "Kencana", "Mekarwangi", "Sukaresmi", "Sukadamai", "Tanah Sareal", "Kayu Manis TS"],
 };
 
-const H3_RES8_AREA_KM2 = 0.7373;
-
+// ===== Kecamatan centroids (used to offset kelurahan positions) =====
 const KECAMATAN_CENTROIDS = {
   "Menteng": { lat: -6.1950, lng: 106.8370 }, "Tanah Abang": { lat: -6.1860, lng: 106.8110 },
   "Gambir": { lat: -6.1710, lng: 106.8220 }, "Sawah Besar": { lat: -6.1550, lng: 106.8350 },
@@ -151,21 +248,18 @@ const KECAMATAN_CENTROIDS = {
   "Duren Sawit": { lat: -6.2300, lng: 106.9100 }, "Makasar": { lat: -6.2650, lng: 106.8950 },
   "Cakung": { lat: -6.1950, lng: 106.9350 }, "Cipayung": { lat: -6.3100, lng: 106.8950 },
   "Ciracas": { lat: -6.3200, lng: 106.8700 }, "Pasar Rebo": { lat: -6.3150, lng: 106.8550 },
-  // Depok
   "Beji": { lat: -6.3700, lng: 106.8280 }, "Pancoran Mas": { lat: -6.4000, lng: 106.8200 },
   "Cipayung Depok": { lat: -6.4200, lng: 106.8100 }, "Sukmajaya": { lat: -6.3900, lng: 106.8400 },
   "Cilodong": { lat: -6.4100, lng: 106.8500 }, "Limo": { lat: -6.3700, lng: 106.7900 },
   "Cinere": { lat: -6.3400, lng: 106.7700 }, "Cimanggis": { lat: -6.3700, lng: 106.8600 },
   "Tapos": { lat: -6.3900, lng: 106.8800 }, "Sawangan": { lat: -6.4300, lng: 106.7700 },
   "Bojongsari": { lat: -6.4100, lng: 106.7600 },
-  // Bekasi
   "Bekasi Timur": { lat: -6.2500, lng: 107.0200 }, "Bekasi Barat": { lat: -6.2400, lng: 106.9800 },
   "Bekasi Utara": { lat: -6.2100, lng: 107.0000 }, "Bekasi Selatan": { lat: -6.2700, lng: 107.0000 },
   "Rawalumbu": { lat: -6.2800, lng: 107.0200 }, "Medan Satria": { lat: -6.2000, lng: 106.9700 },
   "Jatiasih": { lat: -6.2900, lng: 106.9600 }, "Bantargebang": { lat: -6.3300, lng: 107.0400 },
   "Mustika Jaya": { lat: -6.3100, lng: 107.0200 }, "Pondok Gede": { lat: -6.2800, lng: 106.9200 },
   "Jatisampurna": { lat: -6.3100, lng: 106.9400 }, "Pondok Melati": { lat: -6.2900, lng: 106.9100 },
-  // Tangerang
   "Tangerang": { lat: -6.1780, lng: 106.6310 }, "Karawaci": { lat: -6.1650, lng: 106.6150 },
   "Cipondoh": { lat: -6.1800, lng: 106.6600 }, "Ciledug": { lat: -6.2300, lng: 106.7100 },
   "Pinang": { lat: -6.2200, lng: 106.6800 }, "Neglasari": { lat: -6.1550, lng: 106.6300 },
@@ -173,25 +267,61 @@ const KECAMATAN_CENTROIDS = {
   "Jatiuwung": { lat: -6.2000, lng: 106.5900 }, "Periuk": { lat: -6.1700, lng: 106.6000 },
   "Cibodas": { lat: -6.1900, lng: 106.6100 }, "Larangan": { lat: -6.2200, lng: 106.7300 },
   "Karang Tengah": { lat: -6.2300, lng: 106.7200 },
-  // Tangerang Selatan
   "Serpong": { lat: -6.3200, lng: 106.6700 }, "Serpong Utara": { lat: -6.2900, lng: 106.6600 },
   "Pondok Aren": { lat: -6.2600, lng: 106.7300 }, "Ciputat": { lat: -6.2800, lng: 106.7500 },
   "Ciputat Timur": { lat: -6.2900, lng: 106.7600 }, "Pamulang": { lat: -6.3400, lng: 106.7400 },
   "Setu": { lat: -6.3500, lng: 106.6900 },
-  // Bogor
   "Bogor Tengah": { lat: -6.5950, lng: 106.7870 }, "Bogor Utara": { lat: -6.5700, lng: 106.7800 },
   "Bogor Selatan": { lat: -6.6200, lng: 106.7900 }, "Bogor Timur": { lat: -6.5900, lng: 106.8100 },
   "Bogor Barat": { lat: -6.6000, lng: 106.7600 }, "Tanah Sareal": { lat: -6.5600, lng: 106.7700 },
 };
 
-function findNearestKecamatan(lat, lng) {
+// ===== Build kelurahan centroids from kecamatan with small offsets =====
+function buildKelurahanCentroids() {
+  const kelCentroids = {};
+  for (const [kecName, kelList] of Object.entries(KELURAHAN_PER_KECAMATAN)) {
+    const kecCenter = KECAMATAN_CENTROIDS[kecName];
+    if (!kecCenter) continue;
+    const n = kelList.length;
+    const radius = 0.008 + n * 0.001; // spread kelurahan around kecamatan center
+    for (let i = 0; i < n; i++) {
+      const angle = (2 * Math.PI * i) / n;
+      const dist = radius * (0.4 + 0.6 * ((i % 3 + 1) / 3));
+      kelCentroids[kelList[i]] = {
+        lat: kecCenter.lat + dist * Math.sin(angle),
+        lng: kecCenter.lng + dist * Math.cos(angle),
+        kecamatan: kecName,
+      };
+    }
+  }
+  return kelCentroids;
+}
+
+const KELURAHAN_CENTROIDS = buildKelurahanCentroids();
+
+const AGE_PROFILES = {
+  cbd: { "0-14": 0.155, "15-24": 0.178, "25-44": 0.405, "45-64": 0.202, "65+": 0.060 },
+  affluent: { "0-14": 0.195, "15-24": 0.145, "25-44": 0.305, "45-64": 0.255, "65+": 0.100 },
+  dense_residential: { "0-14": 0.265, "15-24": 0.185, "25-44": 0.320, "45-64": 0.175, "65+": 0.055 },
+  residential: { "0-14": 0.230, "15-24": 0.168, "25-44": 0.332, "45-64": 0.200, "65+": 0.070 },
+  suburban_family: { "0-14": 0.275, "15-24": 0.170, "25-44": 0.335, "45-64": 0.170, "65+": 0.050 },
+  industrial: { "0-14": 0.210, "15-24": 0.195, "25-44": 0.365, "45-64": 0.180, "65+": 0.050 },
+  mixed: { "0-14": 0.225, "15-24": 0.168, "25-44": 0.332, "45-64": 0.208, "65+": 0.067 },
+};
+
+const H3_RES8_AREA_KM2 = 0.7373;
+
+function findNearestKelurahan(lat, lng) {
   let minDist = Infinity;
-  let nearest = "Menteng";
-  for (const [name, centroid] of Object.entries(KECAMATAN_CENTROIDS)) {
-    const dlat = lat - centroid.lat;
-    const dlng = lng - centroid.lng;
+  let nearest = null;
+  for (const [name, data] of Object.entries(KELURAHAN_CENTROIDS)) {
+    const dlat = lat - data.lat;
+    const dlng = lng - data.lng;
     const dist = dlat * dlat + dlng * dlng;
-    if (dist < minDist) { minDist = dist; nearest = name; }
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = name;
+    }
   }
   return nearest;
 }
@@ -227,7 +357,9 @@ function dominantAgeGroup(dist) {
   return dominant;
 }
 
-console.log("Generating BPS-compatible demographics for Jabodetabek H3 hexes...");
+// ===== Main =====
+console.log("Generating kelurahan-level demographics for Jabodetabek H3 hexes...");
+console.log(`Kelurahan entries: ${Object.keys(KELURAHAN_CENTROIDS).length}`);
 
 const hexPath = join(__dirname, "..", "public", "data", "jakarta_h3_scores.geojson");
 let hexData;
@@ -248,14 +380,22 @@ for (const feature of hexData.features) {
   const lat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
   const lng = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
 
-  const kecamatan = findNearestKecamatan(lat, lng);
+  const kelurahan = findNearestKelurahan(lat, lng);
+  if (!kelurahan) continue;
+
+  const kelData = KELURAHAN_CENTROIDS[kelurahan];
+  const kecamatan = kelData.kecamatan;
   const kecData = BPS_KECAMATAN_DATA[kecamatan];
   if (!kecData) continue;
 
   const ageProfile = AGE_PROFILES[kecData.age_profile];
   const rng = seededRandom(h3Index);
 
-  const densityVariation = 1 + (rng() - 0.5) * 0.4;
+  // Per-kelurahan variation: slightly different from kecamatan base
+  const kelIndex = (KELURAHAN_PER_KECAMATAN[kecamatan] || []).indexOf(kelurahan);
+  const kelVariation = 1 + ((kelIndex % 5) - 2) * 0.06; // -12% to +12% per kelurahan
+
+  const densityVariation = kelVariation * (1 + (rng() - 0.5) * 0.3);
   const population_density = Math.round(kecData.density_base * densityVariation);
   const age_distribution = varyAgeDistribution(ageProfile, rng);
   const sex_ratio = Math.round((99 + rng() * 3) * 10) / 10;
@@ -264,17 +404,25 @@ for (const feature of hexData.features) {
   const pct_dependent_raw = (age_distribution["0-14"] || 0) + (age_distribution["65+"] || 0);
   const pct_dependent = Math.round(pct_dependent_raw * 1000) / 10;
 
-  const zero_veh_variation = 1 + (rng() - 0.5) * 0.3;
+  const zero_veh_variation = kelVariation * (1 + (rng() - 0.5) * 0.25);
   const pct_zero_vehicle = Math.round(kecData.zero_veh_base * zero_veh_variation * 10) / 10;
 
-  const njop_variation = 1 + (rng() - 0.5) * 0.4;
+  const njop_variation = kelVariation * (1 + (rng() - 0.5) * 0.35);
   const avg_njop = Math.round(kecData.njop_base * njop_variation);
 
   demographics[h3Index] = {
-    h3_index: h3Index, kecamatan, city_code: kecData.city_code,
-    population_density, total_population, age_distribution,
+    h3_index: h3Index,
+    kelurahan,
+    kecamatan,
+    city_code: kecData.city_code,
+    population_density,
+    total_population,
+    age_distribution,
     dominant_age_group: dominantAgeGroup(age_distribution),
-    sex_ratio, pct_dependent, pct_zero_vehicle, avg_njop,
+    sex_ratio,
+    pct_dependent,
+    pct_zero_vehicle,
+    avg_njop,
     bps_source: `BPS ${kecData.city_code} 2023 (modeled)`,
   };
 }
@@ -284,10 +432,14 @@ mkdirSync(outputDir, { recursive: true });
 const outputPath = join(outputDir, "jakarta_demographics.json");
 writeFileSync(outputPath, JSON.stringify(demographics, null, 2));
 
-console.log(`Saved demographics for ${Object.keys(demographics).length} hexes to ${outputPath}`);
+const uniqueKelurahan = new Set(Object.values(demographics).map(d => d.kelurahan));
+const uniqueKecamatan = new Set(Object.values(demographics).map(d => d.kecamatan));
 const densities = Object.values(demographics).map(d => d.population_density);
 const avgDensity = Math.round(densities.reduce((a, b) => a + b, 0) / densities.length);
 const totalPop = Object.values(demographics).reduce((sum, d) => sum + d.total_population, 0);
+
+console.log(`Saved demographics for ${Object.keys(demographics).length} hexes to ${outputPath}`);
+console.log(`Unique kelurahan: ${uniqueKelurahan.size}, Unique kecamatan: ${uniqueKecamatan.size}`);
 console.log(`Average density: ${avgDensity.toLocaleString()} persons/km²`);
 console.log(`Total estimated population: ${totalPop.toLocaleString()}`);
 console.log(`City codes: ${[...new Set(Object.values(demographics).map(d => d.city_code))].join(", ")}`);

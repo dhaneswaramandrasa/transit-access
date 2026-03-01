@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { useAccessibilityStore } from "@/lib/store";
 import SearchBar from "./SearchBar";
 
@@ -75,6 +76,19 @@ export default function LandingOverlay() {
               </svg>
               Or click anywhere on the map
             </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9, duration: 0.5 }}
+            >
+              <Link
+                href="/methodology"
+                className="text-xs text-blue-500 hover:text-blue-700 underline underline-offset-2"
+              >
+                How does the scoring work?
+              </Link>
+            </motion.div>
           </div>
         </motion.div>
       )}

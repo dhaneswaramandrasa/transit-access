@@ -88,6 +88,7 @@ export function useAISummary() {
         total_population: demographics.total_population,
         age_distribution: demographics.age_distribution,
         dominant_age_group: demographics.dominant_age_group,
+        kelurahan: demographics.kelurahan,
         kecamatan: demographics.kecamatan,
         sex_ratio: demographics.sex_ratio,
       };

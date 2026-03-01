@@ -178,6 +178,7 @@ export interface TransitStop {
 
 export interface Demographics {
   h3_index: string;
+  kelurahan: string;
   kecamatan: string;
   city_code: string;
   population_density: number;
@@ -215,6 +216,8 @@ interface AccessibilityState {
 
   allTransitStops: TransitStop[];
   nearbyTransitStops: TransitStop[];
+  selectedTransitStop: TransitStop | null;
+  transitRoute: RouteData | null;
 
   demographicsData: Map<string, Demographics>;
   demographics: Demographics | null;
@@ -246,6 +249,8 @@ interface AccessibilityState {
 
   setAllTransitStops: (stops: TransitStop[]) => void;
   setNearbyTransitStops: (stops: TransitStop[]) => void;
+  setSelectedTransitStop: (stop: TransitStop | null) => void;
+  setTransitRoute: (route: RouteData | null) => void;
 
   setDemographicsData: (data: Map<string, Demographics>) => void;
   setDemographics: (d: Demographics | null) => void;
@@ -281,6 +286,8 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
 
   allTransitStops: [],
   nearbyTransitStops: [],
+  selectedTransitStop: null,
+  transitRoute: null,
 
   demographicsData: new Map(),
   demographics: null,
@@ -318,6 +325,8 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
 
   setAllTransitStops: (stops) => set({ allTransitStops: stops }),
   setNearbyTransitStops: (stops) => set({ nearbyTransitStops: stops }),
+  setSelectedTransitStop: (stop) => set({ selectedTransitStop: stop }),
+  setTransitRoute: (route) => set({ transitRoute: route }),
 
   setDemographicsData: (data) => set({ demographicsData: data }),
   setDemographics: (d) => set({ demographics: d }),
@@ -340,6 +349,8 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
       routes: new Map(),
       activeRouteId: null,
       nearbyTransitStops: [],
+      selectedTransitStop: null,
+      transitRoute: null,
       demographics: null,
       aiSummary: "",
       aiLoading: false,

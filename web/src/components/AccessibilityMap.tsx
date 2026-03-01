@@ -20,6 +20,7 @@ import { quadrantToColor } from "@/lib/colorScale";
 import { useReachablePOIs } from "@/hooks/useReachablePOIs";
 import { useTransitStops } from "@/hooks/useTransitStops";
 import { useDemographics } from "@/hooks/useDemographics";
+import MapLegend from "@/components/MapLegend";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // Jabodetabek center
@@ -90,6 +91,8 @@ export default function AccessibilityMap() {
     routes,
     activeRouteId,
     nearbyTransitStops,
+    selectedTransitStop,
+    transitRoute,
     appPhase,
     setAppPhase,
     setLoadingStage,
@@ -101,6 +104,7 @@ export default function AccessibilityMap() {
     new globalThis.Map()
   );
   const [loading, setLoading] = useState(true);
+  const [transitRoutes, setTransitRoutes] = useState<GeoJSONData | null>(null);
 
   useReachablePOIs();
   useTransitStops();
@@ -181,6 +185,14 @@ export default function AccessibilityMap() {
       .catch(console.error);
   }, [setAllPOIs]);
 
+  // Load transit route lines
+  useEffect(() => {
+    fetch("/data/jakarta_transit_routes.geojson")
+      .then((r) => r.json())
+      .then((geojson: GeoJSONData) => setTransitRoutes(geojson))
+      .catch(console.error);
+  }, []);
+
   // Click handler
   const handleMapClick = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -244,6 +256,46 @@ export default function AccessibilityMap() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const layers: any[] = [];
 
+  // 0. Transit corridor lines (visible on landing, faded in results)
+  if (transitRoutes) {
+    const ROUTE_COLORS: Record<string, [number, number, number]> = {
+      transjakarta: [249, 115, 22],
+      krl: [59, 130, 246],
+      mrt: [16, 185, 129],
+      lrt: [168, 85, 247],
+    };
+
+    layers.push(
+      new PathLayer({
+        id: "transit-corridors",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        data: transitRoutes.features as any[],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getPath: (d: any) => d.geometry.coordinates,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getColor: (d: any) => [
+          ...(ROUTE_COLORS[d.properties.type] || [150, 150, 150]),
+          appPhase === "landing" ? 180 : 60,
+        ],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getWidth: (d: any) =>
+          d.properties.type === "mrt" || d.properties.type === "lrt" ? 4 : 2,
+        widthMinPixels: 1,
+        widthMaxPixels: 6,
+        capRounded: true,
+        jointRounded: true,
+        pickable: false,
+        updateTriggers: {
+          getColor: [appPhase],
+        },
+        transitions: {
+          getColor: 500,
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+    );
+  }
+
   // 1. H3 hex overlay
   if (data) {
     layers.push(
@@ -287,7 +339,7 @@ export default function AccessibilityMap() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getFillColor: (d: any) => [
           ...(TRANSIT_STOP_COLORS[d.type] || [150, 150, 150]),
-          200,
+          selectedTransitStop?.id === d.id ? 255 : 200,
         ],
         getLineColor: [255, 255, 255, 200],
         getLineWidth: 2,
@@ -295,6 +347,9 @@ export default function AccessibilityMap() {
         stroked: true,
         filled: true,
         pickable: true,
+        updateTriggers: {
+          getFillColor: [selectedTransitStop?.id],
+        },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
     );
@@ -333,7 +388,7 @@ export default function AccessibilityMap() {
     );
   }
 
-  // 4. Walking route line
+  // 4. Walking route to POI
   if (activeRoute) {
     layers.push(
       new PathLayer({
@@ -342,6 +397,25 @@ export default function AccessibilityMap() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getPath: (d: any) => d.path,
         getColor: [59, 130, 246, 200],
+        getWidth: 3,
+        widthMinPixels: 2,
+        widthMaxPixels: 6,
+        capRounded: true,
+        jointRounded: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)
+    );
+  }
+
+  // 4b. Walking route to transit stop
+  if (transitRoute) {
+    layers.push(
+      new PathLayer({
+        id: "transit-walking-route",
+        data: [{ path: transitRoute.geometry }],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getPath: (d: any) => d.path,
+        getColor: [16, 185, 129, 200],
         getWidth: 3,
         widthMinPixels: 2,
         widthMaxPixels: 6,
@@ -455,6 +529,8 @@ export default function AccessibilityMap() {
       >
         <MapGL mapStyle={BASEMAP} />
       </DeckGL>
+
+      <MapLegend />
 
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-10">
