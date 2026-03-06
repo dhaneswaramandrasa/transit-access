@@ -411,18 +411,12 @@ export default function AccessibilityMap() {
     [selectedHex?.h3_index]
   );
 
-  // Kelurahan fill color — quadrant-based
+  // Kelurahan fill color — quadrant-based (only called for features with hex_count > 0)
   const getKelurahanColor = useCallback(
     (feature: { properties: Record<string, unknown> }) => {
       const quadrant = feature.properties.quadrant as EquityQuadrant | undefined;
-      const hexCount = feature.properties.hex_count as number;
       const kelKey = `${feature.properties.kelurahan}__${feature.properties.kecamatan}__${feature.properties.city_code}`;
       const isSelected = selectedKelurahan === kelKey;
-
-      // No data — show as light warm beige, clearly distinct from quadrant colors
-      if (!hexCount || hexCount === 0) {
-        return [214, 211, 209, isSelected ? 160 : 70] as [number, number, number, number];
-      }
 
       if (quadrant) {
         return quadrantToColor(quadrant, isSelected ? 255 : 160);
@@ -432,17 +426,12 @@ export default function AccessibilityMap() {
     [selectedKelurahan]
   );
 
-  // Kecamatan fill color — quadrant-based
+  // Kecamatan fill color — quadrant-based (only called for features with hex_count > 0)
   const getKecamatanColor = useCallback(
     (feature: { properties: Record<string, unknown> }) => {
       const quadrant = feature.properties.quadrant as EquityQuadrant | undefined;
-      const hexCount = feature.properties.hex_count as number;
       const kecKey = `${feature.properties.kecamatan}__${feature.properties.city_code}`;
       const isSelected = selectedKecamatan === kecKey;
-
-      if (!hexCount || hexCount === 0) {
-        return [214, 211, 209, isSelected ? 160 : 70] as [number, number, number, number];
-      }
 
       if (quadrant) {
         return quadrantToColor(quadrant, isSelected ? 255 : 160);
@@ -497,13 +486,17 @@ export default function AccessibilityMap() {
     );
   }
 
-  // 1a. Kelurahan boundary overlay
-  if (kelurahanData && boundaryMode === "kelurahan") {
+  // 1a. Kelurahan boundary overlay — only render features that have transit data
+  const kelurahanWithData = kelurahanData
+    ? { ...kelurahanData, features: kelurahanData.features.filter((f) => Number(f.properties.hex_count ?? 0) > 0) }
+    : null;
+
+  if (kelurahanWithData && boundaryMode === "kelurahan") {
     layers.push(
       new GeoJsonLayer({
         id: "kelurahan-boundaries",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data: kelurahanData as any,
+        data: kelurahanWithData as any,
         opacity: hexLayerVisible ? 0.7 : 0,
         pickable: hexLayerVisible,
         stroked: hexLayerVisible,
@@ -525,13 +518,17 @@ export default function AccessibilityMap() {
     );
   }
 
-  // 1a2. Kecamatan boundary overlay
-  if (kecamatanData && boundaryMode === "kecamatan") {
+  // 1a2. Kecamatan boundary overlay — only render features that have transit data
+  const kecamatanWithData = kecamatanData
+    ? { ...kecamatanData, features: kecamatanData.features.filter((f) => Number(f.properties.hex_count ?? 0) > 0) }
+    : null;
+
+  if (kecamatanWithData && boundaryMode === "kecamatan") {
     layers.push(
       new GeoJsonLayer({
         id: "kecamatan-boundaries",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data: kecamatanData as any,
+        data: kecamatanWithData as any,
         opacity: hexLayerVisible ? 0.7 : 0,
         pickable: hexLayerVisible,
         stroked: hexLayerVisible,
