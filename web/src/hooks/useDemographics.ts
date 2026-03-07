@@ -12,6 +12,8 @@ export function useDemographics() {
   } = useAccessibilityStore();
 
   const loadedRef = useRef(false);
+  // Secondary lookup: "kelurahan__kecamatan__city_code" → Demographics
+  const kelLookupRef = useRef<Map<string, Demographics>>(new Map());
 
   // Load demographics JSON on mount
   useEffect(() => {
@@ -25,10 +27,18 @@ export function useDemographics() {
         const data: Record<string, Demographics> = await res.json();
 
         const demoMap = new Map<string, Demographics>();
+        const kelMap = new Map<string, Demographics>();
+
         for (const [h3Index, demo] of Object.entries(data)) {
           demoMap.set(h3Index, demo);
+          // Key matches the click handler format in AccessibilityMap
+          const kelKey = `${demo.kelurahan}__${demo.kecamatan}__${demo.city_code}`;
+          if (!kelMap.has(kelKey)) {
+            kelMap.set(kelKey, demo);
+          }
         }
 
+        kelLookupRef.current = kelMap;
         setDemographicsData(demoMap);
       } catch (err) {
         console.error("Failed to load demographics:", err);
@@ -36,14 +46,31 @@ export function useDemographics() {
     })();
   }, [setDemographicsData]);
 
-  // Look up demographics for selected hex
+  // Look up demographics for selected hex or boundary
   useEffect(() => {
     if (!selectedHex) {
       setDemographics(null);
       return;
     }
 
-    const demo = demographicsData.get(selectedHex.h3_index) || null;
+    const h3Index = selectedHex.h3_index;
+
+    // Kelurahan boundary click: h3_index = "kel_<kelurahan>__<kecamatan>__<city_code>"
+    if (h3Index.startsWith("kel_")) {
+      const kelKey = h3Index.slice(4); // strip "kel_" prefix
+      const demo = kelLookupRef.current.get(kelKey) || null;
+      setDemographics(demo);
+      return;
+    }
+
+    // Kecamatan boundary: no single kelurahan to display
+    if (h3Index.startsWith("kec_")) {
+      setDemographics(null);
+      return;
+    }
+
+    // Normal H3 hex lookup
+    const demo = demographicsData.get(h3Index) || null;
     setDemographics(demo);
   }, [selectedHex, demographicsData, setDemographics]);
 }

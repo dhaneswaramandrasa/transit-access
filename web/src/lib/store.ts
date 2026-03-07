@@ -1,5 +1,8 @@
 import { create } from "zustand";
 
+// ===== Boundary Mode =====
+export type BoundaryMode = "kelurahan" | "kecamatan" | "hex";
+
 // ===== App Phase =====
 export type AppPhase = "landing" | "loading" | "results";
 export type LoadingStage =
@@ -204,6 +207,8 @@ interface AccessibilityState {
   threshold: 30 | 60;
   mapStats: MapStats | null;
   hexLayerVisible: boolean;
+  h3Resolution: 7 | 8;
+  boundaryMode: BoundaryMode;
 
   clickedCoordinate: [number, number] | null;
 
@@ -236,6 +241,8 @@ interface AccessibilityState {
   setMapStats: (s: MapStats) => void;
   setHexLayerVisible: (v: boolean) => void;
   toggleHexLayer: () => void;
+  setH3Resolution: (r: 7 | 8) => void;
+  setBoundaryMode: (mode: BoundaryMode) => void;
 
   setClickedCoordinate: (coord: [number, number] | null) => void;
 
@@ -274,6 +281,8 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
   threshold: 30,
   mapStats: null,
   hexLayerVisible: false,
+  h3Resolution: 8,
+  boundaryMode: "kelurahan" as BoundaryMode,
 
   clickedCoordinate: null,
 
@@ -307,6 +316,8 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
   setHexLayerVisible: (v) => set({ hexLayerVisible: v }),
   toggleHexLayer: () =>
     set((state) => ({ hexLayerVisible: !state.hexLayerVisible })),
+  setH3Resolution: (r) => set({ h3Resolution: r }),
+  setBoundaryMode: (mode) => set({ boundaryMode: mode }),
 
   setClickedCoordinate: (coord) => set({ clickedCoordinate: coord }),
 
