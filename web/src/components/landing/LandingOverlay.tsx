@@ -1,12 +1,26 @@
 "use client";
 
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useAccessibilityStore } from "@/lib/store";
+import { useAccessibilityStore, type BoundaryMode } from "@/lib/store";
 import SearchBar from "./SearchBar";
+
+type Category = "administrative" | "hex" | null;
 
 export default function LandingOverlay() {
   const appPhase = useAccessibilityStore((s) => s.appPhase);
+  const boundaryMode = useAccessibilityStore((s) => s.boundaryMode);
+  const setBoundaryMode = useAccessibilityStore((s) => s.setBoundaryMode);
+  const setHexLayerVisible = useAccessibilityStore((s) => s.setHexLayerVisible);
+  const setH3Resolution = useAccessibilityStore((s) => s.setH3Resolution);
+  const [category, setCategory] = useState<Category>(null);
+
+  const handleChooseMode = (mode: BoundaryMode, resolution?: 7 | 8) => {
+    setBoundaryMode(mode);
+    if (resolution) setH3Resolution(resolution);
+    setHexLayerVisible(true);
+  };
 
   return (
     <AnimatePresence>
@@ -44,11 +58,137 @@ export default function LandingOverlay() {
               </p>
             </motion.div>
 
+            {/* Boundary Mode Chooser — Two-level */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.5 }}
+              className="w-full max-w-md"
+            >
+              <p className="text-xs text-slate-400 text-center mb-2 uppercase tracking-wider font-medium">
+                Choose Boundary Type
+              </p>
+
+              {/* Level 1: Administrative vs Hex */}
+              <div className="flex gap-3 mb-2">
+                <button
+                  onClick={() => setCategory(category === "administrative" ? null : "administrative")}
+                  className={`flex-1 rounded-xl p-3 border-2 transition-all text-left ${
+                    category === "administrative"
+                      ? "border-blue-500 bg-blue-50/80 shadow-md"
+                      : "border-slate-200 bg-white/70 hover:border-blue-300 hover:bg-white/90"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    <span className="text-sm font-semibold text-slate-800">Administrative</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    Official government boundaries from BIG
+                  </p>
+                </button>
+                <button
+                  onClick={() => setCategory(category === "hex" ? null : "hex")}
+                  className={`flex-1 rounded-xl p-3 border-2 transition-all text-left ${
+                    category === "hex"
+                      ? "border-blue-500 bg-blue-50/80 shadow-md"
+                      : "border-slate-200 bg-white/70 hover:border-blue-300 hover:bg-white/90"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l8 4.5v9L12 22l-8-6.5v-9L12 2z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-slate-800">H3 Hex Grid</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    Uniform hexagonal grid for precise analysis
+                  </p>
+                </button>
+              </div>
+
+              {/* Level 2: Sub-options */}
+              <AnimatePresence mode="wait">
+                {category === "administrative" && (
+                  <motion.div
+                    key="admin-sub"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => handleChooseMode("kelurahan")}
+                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
+                          boundaryMode === "kelurahan"
+                            ? "border-blue-400 bg-blue-50 shadow-sm"
+                            : "border-slate-200 bg-white/70 hover:border-blue-300"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-slate-700">Kelurahan</span>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Village level (~1,500 areas)</p>
+                      </button>
+                      <button
+                        onClick={() => handleChooseMode("kecamatan")}
+                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
+                          boundaryMode === "kecamatan"
+                            ? "border-blue-400 bg-blue-50 shadow-sm"
+                            : "border-slate-200 bg-white/70 hover:border-blue-300"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-slate-700">Kecamatan</span>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Sub-district level (~185 areas)</p>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+                {category === "hex" && (
+                  <motion.div
+                    key="hex-sub"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => handleChooseMode("hex", 8)}
+                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
+                          boundaryMode === "hex" && useAccessibilityStore.getState().h3Resolution === 8
+                            ? "border-blue-400 bg-blue-50 shadow-sm"
+                            : "border-slate-200 bg-white/70 hover:border-blue-300"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-slate-700">Small Hex</span>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Res 8 · ~0.74 km² each</p>
+                      </button>
+                      <button
+                        onClick={() => handleChooseMode("hex", 7)}
+                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
+                          boundaryMode === "hex" && useAccessibilityStore.getState().h3Resolution === 7
+                            ? "border-blue-400 bg-blue-50 shadow-sm"
+                            : "border-slate-200 bg-white/70 hover:border-blue-300"
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-slate-700">Large Hex</span>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Res 7 · ~5.16 km² each</p>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
             {/* Search Bar */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.5 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
               className="w-full max-w-md"
             >
               <SearchBar />
