@@ -6,7 +6,6 @@ An open research tool that scores every H3 hexagon (resolution 8, ~0.74 km²) ac
 
 **Click anywhere on the map** to get an AI-generated equity analysis of that location: what services are reachable, how it compares to the Jabodetabek average, which equity quadrant the area falls into, and what planning interventions would help.
 
-Built as part of a Smart Society master's thesis, Hiroshima University (April 2026). Phase 2 will add Hiroshima for cross-city comparison.
 
 **Live demo**: _coming soon_
 **Data**: OpenStreetMap · TransJakarta/KRL/MRT/LRT GTFS · BPS Census 2020
