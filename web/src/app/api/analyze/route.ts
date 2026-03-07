@@ -115,8 +115,9 @@ export async function POST(request: Request) {
       model: "openai/gpt-oss-20b",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 400,
-      stream: true,
+      stream: false,
     }),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!response.ok) {
@@ -126,58 +127,13 @@ export async function POST(request: Request) {
     });
   }
 
-  const encoder = new TextEncoder();
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || "";
 
-  const readable = new ReadableStream({
-    async start(controller) {
-      try {
-        const reader = response.body?.getReader();
-        if (!reader) {
-          controller.close();
-          return;
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith("data: ")) continue;
-            const payload = trimmed.slice(6);
-            if (payload === "[DONE]") continue;
-
-            try {
-              const json = JSON.parse(payload);
-              const content = json.choices?.[0]?.delta?.content;
-              if (content) {
-                controller.enqueue(encoder.encode(content));
-              }
-            } catch {
-              // skip malformed JSON chunks
-            }
-          }
-        }
-
-        controller.close();
-      } catch (err) {
-        controller.error(err);
-      }
-    },
-  });
-
-  return new Response(readable, {
+  return new Response(content, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
-      "Transfer-Encoding": "chunked",
     },
   });
 }
