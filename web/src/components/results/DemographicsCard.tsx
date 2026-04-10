@@ -3,30 +3,15 @@
 import { useAccessibilityStore } from "@/lib/store";
 import GlassPanel from "@/components/ui/GlassPanel";
 
-const AGE_COLORS: Record<string, string> = {
-  "0-14": "#60a5fa",   // blue-400
-  "15-24": "#34d399",  // emerald-400
-  "25-44": "#fbbf24",  // amber-400
-  "45-64": "#f97316",  // orange-500
-  "65+": "#a78bfa",    // violet-400
-};
-
-const AGE_LABELS: Record<string, string> = {
-  "0-14": "Children",
-  "15-24": "Youth",
-  "25-44": "Working Age",
-  "45-64": "Middle Aged",
-  "65+": "Elderly",
-};
-
 export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
   const demographics = useAccessibilityStore((s) => s.demographics);
 
   if (!demographics) return null;
 
-  const ageEntries = Object.entries(demographics.age_distribution).sort(
-    ([a], [b]) => a.localeCompare(b)
-  );
+  const formatIDR = (val: number | null | undefined) => {
+    if (val == null) return "N/A";
+    return `Rp ${(val / 1_000_000).toFixed(1)}M`;
+  };
 
   return (
     <GlassPanel delay={delay}>
@@ -39,21 +24,24 @@ export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
         <div>
           <div className="text-sm text-slate-500">Kelurahan</div>
           <div className="text-lg font-semibold text-slate-800">
-            {demographics.kelurahan}
+            {demographics.kelurahan_name}
           </div>
           <div className="text-xs text-slate-400">
-            Kec. {demographics.kecamatan}
+            Kec. {demographics.kecamatan_name}
+          </div>
+          <div className="text-xs text-slate-400">
+            {demographics.kota_kab_name}
           </div>
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold text-slate-800">
-            {demographics.population_density.toLocaleString()}
+            {demographics.pop_density.toLocaleString()}
           </div>
           <div className="text-xs text-slate-400">persons/km²</div>
         </div>
       </div>
 
-      {/* Population estimate */}
+      {/* Population */}
       <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-slate-50 rounded-lg">
         <svg
           className="w-4 h-4 text-slate-400"
@@ -69,8 +57,7 @@ export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
           />
         </svg>
         <span className="text-sm text-slate-600">
-          Est. <strong>{demographics.total_population.toLocaleString()}</strong>{" "}
-          people in this hex
+          Est. <strong>{demographics.population.toLocaleString()}</strong> people
         </span>
       </div>
 
@@ -78,69 +65,42 @@ export default function DemographicsCard({ delay = 0 }: { delay?: number }) {
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="px-3 py-2 bg-orange-50 rounded-lg">
           <div className="text-lg font-bold text-orange-700">
-            {demographics.pct_dependent?.toFixed(0) ?? "N/A"}%
+            {demographics.dependency_ratio != null
+              ? `${(demographics.dependency_ratio * 100).toFixed(0)}%`
+              : "N/A"}
           </div>
-          <div className="text-[10px] text-orange-500 uppercase">Dependent Pop</div>
+          <div className="text-[10px] text-orange-500 uppercase">Dependency Ratio</div>
         </div>
         <div className="px-3 py-2 bg-purple-50 rounded-lg">
           <div className="text-lg font-bold text-purple-700">
-            {demographics.pct_zero_vehicle?.toFixed(0) ?? "N/A"}%
+            {demographics.zero_vehicle_hh_pct != null
+              ? `${(demographics.zero_vehicle_hh_pct * 100).toFixed(0)}%`
+              : "N/A"}
           </div>
-          <div className="text-[10px] text-purple-500 uppercase">No Vehicle</div>
+          <div className="text-[10px] text-purple-500 uppercase">No Vehicle HH</div>
         </div>
       </div>
 
-      {/* NJOP */}
-      {demographics.avg_njop > 0 && (
-        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-slate-50 rounded-lg">
-          <span className="text-xs text-slate-500">
-            Land Value (NJOP): <strong>Rp {(demographics.avg_njop / 1000000).toFixed(1)}M</strong>/m²
-          </span>
-        </div>
-      )}
-
-      {/* Age distribution stacked bar */}
-      <div className="mb-3">
-        <div className="text-xs font-medium text-slate-500 mb-2">
-          Age Distribution
-        </div>
-        <div className="h-5 rounded-full overflow-hidden flex">
-          {ageEntries.map(([group, pct]) => (
-            <div
-              key={group}
-              style={{
-                width: `${pct * 100}%`,
-                backgroundColor: AGE_COLORS[group] || "#94a3b8",
-              }}
-              title={`${group}: ${(pct * 100).toFixed(1)}%`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-        {ageEntries.map(([group, pct]) => (
-          <div key={group} className="flex items-center gap-2">
-            <span
-              className="w-2.5 h-2.5 rounded-sm shrink-0"
-              style={{
-                backgroundColor: AGE_COLORS[group] || "#94a3b8",
-              }}
-            />
-            <span className="text-xs text-slate-600">
-              {AGE_LABELS[group] || group}{" "}
-              <span className="text-slate-400">
-                {(pct * 100).toFixed(1)}%
-              </span>
-            </span>
+      {/* Poverty + Expenditure */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="px-3 py-2 bg-red-50 rounded-lg">
+          <div className="text-lg font-bold text-red-700">
+            {demographics.poverty_rate != null
+              ? `${(demographics.poverty_rate * 100).toFixed(1)}%`
+              : "N/A"}
           </div>
-        ))}
+          <div className="text-[10px] text-red-500 uppercase">Poverty Rate</div>
+        </div>
+        <div className="px-3 py-2 bg-slate-50 rounded-lg">
+          <div className="text-base font-bold text-slate-700">
+            {formatIDR(demographics.avg_household_expenditure)}
+          </div>
+          <div className="text-[10px] text-slate-500 uppercase">Avg HH Spend/mo</div>
+        </div>
       </div>
 
-      {/* BPS source */}
       <div className="mt-2 text-[10px] text-slate-300 uppercase tracking-wider">
-        Source: BPS {demographics.city_code} (modeled)
+        Source: BPS {demographics.kota_kab_name} (modeled)
       </div>
     </GlassPanel>
   );

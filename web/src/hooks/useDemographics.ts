@@ -1,76 +1,44 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useAccessibilityStore, type Demographics } from "@/lib/store";
 
+/**
+ * Derives demographics from the selected zone's HexProperties.
+ * Kelurahan-level properties are available for admin boundary clicks.
+ * For H3 hex clicks, only aggregate fields are available.
+ */
 export function useDemographics() {
-  const {
-    selectedHex,
-    demographicsData,
-    setDemographicsData,
-    setDemographics,
-  } = useAccessibilityStore();
+  const { selectedHex, setDemographics } = useAccessibilityStore();
 
-  const loadedRef = useRef(false);
-  // Secondary lookup: "kelurahan__kecamatan__city_code" → Demographics
-  const kelLookupRef = useRef<Map<string, Demographics>>(new Map());
-
-  // Load demographics JSON on mount
-  useEffect(() => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
-
-    (async () => {
-      try {
-        const res = await fetch("/data/jakarta_demographics.json");
-        if (!res.ok) return;
-        const data: Record<string, Demographics> = await res.json();
-
-        const demoMap = new Map<string, Demographics>();
-        const kelMap = new Map<string, Demographics>();
-
-        for (const [h3Index, demo] of Object.entries(data)) {
-          demoMap.set(h3Index, demo);
-          // Key matches the click handler format in AccessibilityMap
-          const kelKey = `${demo.kelurahan}__${demo.kecamatan}__${demo.city_code}`;
-          if (!kelMap.has(kelKey)) {
-            kelMap.set(kelKey, demo);
-          }
-        }
-
-        kelLookupRef.current = kelMap;
-        setDemographicsData(demoMap);
-      } catch (err) {
-        console.error("Failed to load demographics:", err);
-      }
-    })();
-  }, [setDemographicsData]);
-
-  // Look up demographics for selected hex or boundary
   useEffect(() => {
     if (!selectedHex) {
       setDemographics(null);
       return;
     }
 
-    const h3Index = selectedHex.h3_index;
-
-    // Kelurahan boundary click: h3_index = "kel_<kelurahan>__<kecamatan>__<city_code>"
-    if (h3Index.startsWith("kel_")) {
-      const kelKey = h3Index.slice(4); // strip "kel_" prefix
-      const demo = kelLookupRef.current.get(kelKey) || null;
-      setDemographics(demo);
-      return;
-    }
-
-    // Kecamatan boundary: no single kelurahan to display
-    if (h3Index.startsWith("kec_")) {
+    // Kecamatan boundary — no single kelurahan to display
+    if (selectedHex.h3_index.startsWith("kec_")) {
       setDemographics(null);
       return;
     }
 
-    // Normal H3 hex lookup
-    const demo = demographicsData.get(h3Index) || null;
+    // Build Demographics from HexProperties fields
+    const demo: Demographics = {
+      h3_index: selectedHex.h3_index,
+      kelurahan_name: selectedHex.kelurahan_name ?? "—",
+      kecamatan_name: selectedHex.kecamatan_name ?? "—",
+      kota_kab_name: selectedHex.kota_kab_name ?? "—",
+      pop_density: selectedHex.pop_density ?? 0,
+      population: selectedHex.population ?? 0,
+      poverty_rate: selectedHex.poverty_rate ?? 0,
+      avg_household_expenditure: selectedHex.avg_household_expenditure ?? 0,
+      zero_vehicle_hh_pct: selectedHex.zero_vehicle_hh_pct ?? 0,
+      dependency_ratio: selectedHex.dependency_ratio ?? 0,
+      kelurahan_id: selectedHex.kelurahan_id ?? null,
+      area_km2: selectedHex.area_km2 ?? null,
+    };
+
     setDemographics(demo);
-  }, [selectedHex, demographicsData, setDemographics]);
+  }, [selectedHex, setDemographics]);
 }

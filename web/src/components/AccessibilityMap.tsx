@@ -76,7 +76,6 @@ function median(arr: number[]): number {
 
 export default function AccessibilityMap() {
   const {
-    threshold,
     setSelectedHex,
     selectedHex,
     setMapStats,
@@ -118,9 +117,8 @@ export default function AccessibilityMap() {
   // Load hex GeoJSON — reloads when h3Resolution changes
   useEffect(() => {
     setLoading(true);
-    const dataFile = h3Resolution === 7
-      ? "/data/jakarta_h3_scores_res7.geojson"
-      : "/data/jakarta_h3_scores.geojson";
+    // res 7 not in new pipeline — fall back to res 8
+    const dataFile = "/data/h3_scores.geojson";
 
     fetch(dataFile)
       .then((r) => r.json())
@@ -129,16 +127,16 @@ export default function AccessibilityMap() {
         setHexLookup(buildHexLookup(geojson));
 
         const scores = geojson.features
-          .map((f) => f.properties.composite_score as number)
+          .map((f) => f.properties.tai_score as number)
           .filter((s) => s != null && !isNaN(s))
           .sort((a, b) => a - b);
 
         const needScores = geojson.features
-          .map((f) => f.properties.transit_need_score as number)
+          .map((f) => f.properties.tni_score as number)
           .filter((s) => s != null && !isNaN(s));
 
         const accessScores = geojson.features
-          .map((f) => f.properties.transit_accessibility_score as number)
+          .map((f) => f.properties.tai_score as number)
           .filter((s) => s != null && !isNaN(s));
 
         const equityGaps = geojson.features
@@ -147,10 +145,7 @@ export default function AccessibilityMap() {
 
         // Count quadrants
         const quadrantCounts: Record<EquityQuadrant, number> = {
-          "transit-desert": 0,
-          "transit-ideal": 0,
-          "over-served": 0,
-          "car-suburb": 0,
+          Q1: 0, Q2: 0, Q3: 0, Q4: 0,
         };
         for (const f of geojson.features) {
           const q = f.properties.quadrant as EquityQuadrant;
@@ -162,13 +157,13 @@ export default function AccessibilityMap() {
         const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
 
         const stats: MapStats = {
-          avg_score: Math.round(avg * 10) / 10,
-          median_score: Math.round(median(scores) * 10) / 10,
-          total_hexes: scores.length,
+          avg_score: Math.round(avg * 1000) / 1000,
+          median_score: Math.round(median(scores) * 1000) / 1000,
+          total_zones: scores.length,
           h3_resolution: h3Resolution,
-          median_need: Math.round(median(needScores) * 10) / 10,
-          median_accessibility: Math.round(median(accessScores) * 10) / 10,
-          avg_equity_gap: Math.round((equityGaps.reduce((a, b) => a + b, 0) / equityGaps.length) * 10) / 10,
+          median_need: Math.round(median(needScores) * 1000) / 1000,
+          median_accessibility: Math.round(median(accessScores) * 1000) / 1000,
+          avg_equity_gap: Math.round((equityGaps.reduce((a, b) => a + b, 0) / equityGaps.length) * 1000) / 1000,
           quadrant_counts: quadrantCounts,
         };
         setMapStats(stats);
@@ -203,9 +198,9 @@ export default function AccessibilityMap() {
       .catch(console.error);
   }, []);
 
-  // Load kelurahan boundaries
+  // Load kelurahan scores (boundaries + all score fields)
   useEffect(() => {
-    fetch("/data/jakarta_kelurahan_boundaries.geojson")
+    fetch("/data/kelurahan_scores.geojson")
       .then((r) => r.json())
       .then((geojson: GeoJSONData) => setKelurahanData(geojson))
       .catch(console.error);
@@ -231,48 +226,38 @@ export default function AccessibilityMap() {
         const props = info.object.properties;
         if (!props.hex_count || props.hex_count === 0) return;
 
-        const kecKey = `${props.kecamatan}__${props.city_code}`;
+        const kecKey = `${props.kecamatan_name}__${props.kota_kab_name}`;
         setSelectedKecamatan(kecKey);
         setSelectedKelurahan(null);
 
         const kecHex: HexProperties = {
           h3_index: `kec_${kecKey}`,
-          composite_score: props.composite_score ?? 0,
-          score_30min: props.score_30min ?? 0,
-          score_60min: props.score_60min ?? 0,
-          percentile_rank: props.percentile_rank ?? 0,
-          hospital_30min: props.hospital_30min ?? 0,
-          hospital_60min: props.hospital_60min ?? 0,
-          clinic_30min: props.clinic_30min ?? 0,
-          clinic_60min: props.clinic_60min ?? 0,
-          market_30min: props.market_30min ?? 0,
-          market_60min: props.market_60min ?? 0,
-          supermarket_30min: props.supermarket_30min ?? 0,
-          supermarket_60min: props.supermarket_60min ?? 0,
-          school_30min: props.school_30min ?? 0,
-          school_60min: props.school_60min ?? 0,
-          park_30min: props.park_30min ?? 0,
-          park_60min: props.park_60min ?? 0,
-          pop_total: props.pop_total ?? 0,
-          pct_dependent: props.pct_dependent ?? 0,
-          pct_zero_vehicle: props.pct_zero_vehicle ?? 0,
-          avg_njop: props.avg_njop ?? 0,
-          is_informal_settlement: false,
-          dist_to_transit: props.dist_to_transit ?? 0,
-          is_walkable_transit: props.is_walkable_transit ?? false,
-          transit_capacity_weight: props.transit_capacity_weight ?? 0,
-          local_poi_density: props.local_poi_density ?? 0,
-          transit_shed_poi_count: props.transit_shed_poi_count ?? 0,
-          transit_need_score: props.transit_need_score ?? 0,
-          transit_accessibility_score: props.transit_accessibility_score ?? 0,
-          equity_gap: props.equity_gap ?? 0,
-          quadrant: props.quadrant ?? "car-suburb",
+          kecamatan_name: props.kecamatan_name as string ?? null,
+          kota_kab_name: props.kota_kab_name as string ?? null,
+          population: (props.population as number) ?? 0,
+          tni_score: (props.tni_score as number) ?? 0,
+          tai_score: (props.tai_score as number) ?? 0,
+          equity_gap: (props.equity_gap as number) ?? 0,
+          quadrant: (props.quadrant as EquityQuadrant) ?? "Q3",
+          dependency_ratio: (props.dependency_ratio as number) ?? null,
+          zero_vehicle_hh_pct: (props.zero_vehicle_hh_pct as number) ?? null,
+          poverty_rate: (props.poverty_rate as number) ?? null,
+          avg_household_expenditure: (props.avg_household_expenditure as number) ?? null,
+          min_dist_to_transit_m: (props.min_dist_to_transit_m as number) ?? null,
+          n_transit_stops: (props.n_transit_stops as number) ?? null,
+          avg_headway_min: (props.avg_headway_min as number) ?? null,
+          transit_mode_diversity: (props.transit_mode_diversity as number) ?? null,
+          tai_l1_first_mile: (props.tai_l1_first_mile as number) ?? null,
+          tai_l2_service_quality: (props.tai_l2_service_quality as number) ?? null,
+          tai_l3_cbd_journey: (props.tai_l3_cbd_journey as number) ?? null,
+          tai_l4_last_mile: (props.tai_l4_last_mile as number) ?? null,
+          tai_l5_cost_competitiveness: (props.tai_l5_cost_competitiveness as number) ?? null,
         };
 
         if (info.coordinate) {
           const [lng, lat] = info.coordinate;
           setClickedCoordinate([lng, lat]);
-          setLocationName(`Kec. ${props.kecamatan}, ${props.kab_kota || ""}`);
+          setLocationName(`Kec. ${props.kecamatan_name ?? ""}, ${props.kota_kab_name ?? ""}`);
         }
 
         setSelectedHex(kecHex);
@@ -294,51 +279,60 @@ export default function AccessibilityMap() {
         const props = info.object.properties;
 
         // Skip kelurahan with no scoring data
-        if (!props.hex_count || props.hex_count === 0) return;
+        if (props.tai_score == null) return;
 
-        const kelKey = `${props.kelurahan}__${props.kecamatan}__${props.city_code}`;
+        const kelKey = `${props.kelurahan_name}__${props.kecamatan_name}__${props.kota_kab_name}`;
         setSelectedKelurahan(kelKey);
         setSelectedKecamatan(null);
 
-        // Build a HexProperties-like object from kelurahan data
         const kelHex: HexProperties = {
           h3_index: `kel_${kelKey}`,
-          composite_score: props.composite_score ?? 0,
-          score_30min: props.score_30min ?? 0,
-          score_60min: props.score_60min ?? 0,
-          percentile_rank: props.percentile_rank ?? 0,
-          hospital_30min: props.hospital_30min ?? 0,
-          hospital_60min: props.hospital_60min ?? 0,
-          clinic_30min: props.clinic_30min ?? 0,
-          clinic_60min: props.clinic_60min ?? 0,
-          market_30min: props.market_30min ?? 0,
-          market_60min: props.market_60min ?? 0,
-          supermarket_30min: props.supermarket_30min ?? 0,
-          supermarket_60min: props.supermarket_60min ?? 0,
-          school_30min: props.school_30min ?? 0,
-          school_60min: props.school_60min ?? 0,
-          park_30min: props.park_30min ?? 0,
-          park_60min: props.park_60min ?? 0,
-          pop_total: props.pop_total ?? 0,
-          pct_dependent: props.pct_dependent ?? 0,
-          pct_zero_vehicle: props.pct_zero_vehicle ?? 0,
-          avg_njop: props.avg_njop ?? 0,
-          is_informal_settlement: false,
-          dist_to_transit: props.dist_to_transit ?? 0,
-          is_walkable_transit: props.is_walkable_transit ?? false,
-          transit_capacity_weight: props.transit_capacity_weight ?? 0,
-          local_poi_density: props.local_poi_density ?? 0,
-          transit_shed_poi_count: props.transit_shed_poi_count ?? 0,
-          transit_need_score: props.transit_need_score ?? 0,
-          transit_accessibility_score: props.transit_accessibility_score ?? 0,
-          equity_gap: props.equity_gap ?? 0,
-          quadrant: props.quadrant ?? "car-suburb",
+          kelurahan_id: props.kelurahan_id as string ?? null,
+          kelurahan_name: props.kelurahan_name as string ?? null,
+          kecamatan_name: props.kecamatan_name as string ?? null,
+          kota_kab_name: props.kota_kab_name as string ?? null,
+          area_km2: props.area_km2 as number ?? null,
+          population: (props.population as number) ?? 0,
+          pop_density: props.pop_density as number ?? null,
+          poverty_rate: props.poverty_rate as number ?? null,
+          avg_household_expenditure: props.avg_household_expenditure as number ?? null,
+          zero_vehicle_hh_pct: props.zero_vehicle_hh_pct as number ?? null,
+          dependency_ratio: props.dependency_ratio as number ?? null,
+          tni_score: (props.tni_score as number) ?? 0,
+          road_length_km: props.road_length_km as number ?? null,
+          road_density_km_per_km2: props.road_density_km_per_km2 as number ?? null,
+          pct_footway_pedestrian: props.pct_footway_pedestrian as number ?? null,
+          network_connectivity: props.network_connectivity as number ?? null,
+          n_transit_stops: props.n_transit_stops as number ?? null,
+          n_transit_routes: props.n_transit_routes as number ?? null,
+          avg_headway_min: props.avg_headway_min as number ?? null,
+          min_dist_to_transit_m: props.min_dist_to_transit_m as number ?? null,
+          transit_mode_diversity: props.transit_mode_diversity as number ?? null,
+          best_mode_fare_tier: props.best_mode_fare_tier as number ?? null,
+          has_affordable_mode: props.has_affordable_mode as boolean ?? null,
+          poi_reach_cbd_min: props.poi_reach_cbd_min as number ?? null,
+          tai_l1_first_mile: props.tai_l1_first_mile as number ?? null,
+          tai_l2_service_quality: props.tai_l2_service_quality as number ?? null,
+          tai_l3_cbd_journey: props.tai_l3_cbd_journey as number ?? null,
+          tai_l4_last_mile: props.tai_l4_last_mile as number ?? null,
+          tai_l5_cost_competitiveness: props.tai_l5_cost_competitiveness as number ?? null,
+          gc_transit_idr: props.gc_transit_idr as number ?? null,
+          gc_car_idr: props.gc_car_idr as number ?? null,
+          gc_motorcycle_idr: props.gc_motorcycle_idr as number ?? null,
+          tcr_vs_car: props.tcr_vs_car as number ?? null,
+          tcr_vs_motorcycle: props.tcr_vs_motorcycle as number ?? null,
+          tcr_combined: props.tcr_combined as number ?? null,
+          transit_competitive_zone: props.transit_competitive_zone as HexProperties["transit_competitive_zone"] ?? null,
+          distance_to_sudirman_km: props.distance_to_sudirman_km as number ?? null,
+          tai_score: (props.tai_score as number) ?? 0,
+          equity_gap: (props.equity_gap as number) ?? 0,
+          quadrant: (props.quadrant as EquityQuadrant) ?? "Q3",
         };
 
         if (info.coordinate) {
           const [lng, lat] = info.coordinate;
           setClickedCoordinate([lng, lat]);
-          setLocationName(`Kel. ${props.kelurahan}, Kec. ${props.kecamatan}`);
+          setLocationName(`Kel. ${props.kelurahan_name ?? ""}, Kec. ${props.kecamatan_name ?? ""}`);
         }
 
         setSelectedHex(kelHex);
@@ -411,11 +405,11 @@ export default function AccessibilityMap() {
     [selectedHex?.h3_index]
   );
 
-  // Kelurahan fill color — quadrant-based (only called for features with hex_count > 0)
+  // Kelurahan fill color — quadrant-based
   const getKelurahanColor = useCallback(
     (feature: { properties: Record<string, unknown> }) => {
       const quadrant = feature.properties.quadrant as EquityQuadrant | undefined;
-      const kelKey = `${feature.properties.kelurahan}__${feature.properties.kecamatan}__${feature.properties.city_code}`;
+      const kelKey = `${feature.properties.kelurahan_name}__${feature.properties.kecamatan_name}__${feature.properties.kota_kab_name}`;
       const isSelected = selectedKelurahan === kelKey;
 
       if (quadrant) {
@@ -488,7 +482,7 @@ export default function AccessibilityMap() {
 
   // 1a. Kelurahan boundary overlay — only render features that have transit data
   const kelurahanWithData = kelurahanData
-    ? { ...kelurahanData, features: kelurahanData.features.filter((f) => Number(f.properties.hex_count ?? 0) > 0) }
+    ? { ...kelurahanData, features: kelurahanData.features.filter((f) => f.properties.tai_score != null) }
     : null;
 
   if (kelurahanWithData && boundaryMode === "kelurahan") {
@@ -520,7 +514,7 @@ export default function AccessibilityMap() {
 
   // 1a2. Kecamatan boundary overlay — only render features that have transit data
   const kecamatanWithData = kecamatanData
-    ? { ...kecamatanData, features: kecamatanData.features.filter((f) => Number(f.properties.hex_count ?? 0) > 0) }
+    ? { ...kecamatanData, features: kecamatanData.features.filter((f) => f.properties.tai_score != null) }
     : null;
 
   if (kecamatanWithData && boundaryMode === "kecamatan") {
