@@ -226,14 +226,14 @@ export default function AccessibilityMap() {
         const props = info.object.properties;
         if (!props.hex_count || props.hex_count === 0) return;
 
-        const kecKey = `${props.kecamatan_name}__${props.kota_kab_name}`;
+        const kecKey = `${props.kecamatan}__${props.city_code}`;
         setSelectedKecamatan(kecKey);
         setSelectedKelurahan(null);
 
         const kecHex: HexProperties = {
           h3_index: `kec_${kecKey}`,
-          kecamatan_name: props.kecamatan_name as string ?? null,
-          kota_kab_name: props.kota_kab_name as string ?? null,
+          kecamatan_name: props.kecamatan as string ?? null,
+          kota_kab_name: props.kab_kota as string ?? null,
           population: (props.population as number) ?? 0,
           tni_score: (props.tni_score as number) ?? 0,
           tai_score: (props.tai_score as number) ?? 0,
@@ -257,7 +257,7 @@ export default function AccessibilityMap() {
         if (info.coordinate) {
           const [lng, lat] = info.coordinate;
           setClickedCoordinate([lng, lat]);
-          setLocationName(`Kec. ${props.kecamatan_name ?? ""}, ${props.kota_kab_name ?? ""}`);
+          setLocationName(`Kec. ${props.kecamatan ?? ""}, ${props.kab_kota ?? ""}`);
         }
 
         setSelectedHex(kecHex);
@@ -514,7 +514,7 @@ export default function AccessibilityMap() {
 
   // 1a2. Kecamatan boundary overlay — only render features that have transit data
   const kecamatanWithData = kecamatanData
-    ? { ...kecamatanData, features: kecamatanData.features.filter((f) => f.properties.tai_score != null) }
+    ? { ...kecamatanData, features: kecamatanData.features.filter((f) => Number(f.properties.hex_count ?? 0) > 0) }
     : null;
 
   if (kecamatanWithData && boundaryMode === "kecamatan") {
