@@ -1,0 +1,102 @@
+{
+  "resolution_primary": "H3 res-8",
+  "kelurahan": {
+    "n": 1502,
+    "gini_tai": 0.2441,
+    "gini_tni": 0.1091,
+    "gini_equity_gap": 0.2608,
+    "global_morans_i_tai": {
+      "moran_i": 0.8876,
+      "p_value": 0.001,
+      "z_score": 50.4494
+    },
+    "global_morans_i_equity_gap": {
+      "moran_i": 0.6945,
+      "p_value": 0.001,
+      "z_score": 39.4816
+    },
+    "quadrant_counts": {
+      "Q2": 417,
+      "Q4": 415,
+      "Q1": 336,
+      "Q3": 334
+    },
+    "q4_pct": 27.63,
+    "lisa_cluster_counts": {
+      "NS": 1003,
+      "LL": 254,
+      "HH": 214,
+      "LH": 17,
+      "HL": 14
+    }
+  },
+  "h3": {
+    "n": 9083,
+    "gini_tai": 0.6128,
+    "gini_tni": 0.1106,
+    "gini_equity_gap": 0.2003,
+    "global_morans_i_tai": {
+      "moran_i": 0.9447,
+      "p_value": 0.001,
+      "z_score": 152.8824
+    },
+    "global_morans_i_equity_gap": {
+      "moran_i": 0.9113,
+      "p_value": 0.001,
+      "z_score": 147.4669
+    },
+    "quadrant_counts": {
+      "Q2": 2545,
+      "Q4": 2545,
+      "Q1": 1997,
+      "Q3": 1996
+    },
+    "q4_pct": 28.02,
+    "lisa_cluster_counts": {
+      "NS": 5605,
+      "HH": 2216,
+      "LL": 1234,
+      "HL": 25,
+      "LH": 3
+    }
+  },
+  "resolution_comparison": {
+    "confusion_matrix": {
+      "Q1": {
+        "Q1": 1363,
+        "Q2": 91,
+        "Q3": 47,
+        "Q4": 509
+      },
+      "Q2": {
+        "Q1": 316,
+        "Q2": 1533,
+        "Q3": 623,
+        "Q4": 101
+      },
+      "Q3": {
+        "Q1": 41,
+        "Q2": 173,
+        "Q3": 1490,
+        "Q4": 303
+      },
+      "Q4": {
+        "Q1": 321,
+        "Q2": 16,
+        "Q3": 113,
+        "Q4": 2110
+      }
+    },
+    "cohen_kappa": 0.6124,
+    "pct_reclassified": 29.01,
+    "q4_count_kelurahan": 415,
+    "q4_count_h3": 2545,
+    "total_kelurahan": 1502,
+    "total_h3": 9083
+  },
+  "h2_hypothesis_signal": {
+    "gini_h3_gt_kelurahan": true,
+    "gini_delta": 0.3687,
+    "kappa_interpretation": "strong"
+  }
+}

@@ -22,6 +22,8 @@ import { useReachablePOIs } from "@/hooks/useReachablePOIs";
 import { useTransitStops } from "@/hooks/useTransitStops";
 import { useDemographics } from "@/hooks/useDemographics";
 import MapLegend from "@/components/MapLegend";
+import EquityDashboard from "@/components/EquityDashboard";
+import { AnimatePresence } from "framer-motion";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // Jabodetabek center
@@ -109,6 +111,7 @@ export default function AccessibilityMap() {
   const [kecamatanData, setKecamatanData] = useState<GeoJSONData | null>(null);
   const [selectedKelurahan, setSelectedKelurahan] = useState<string | null>(null);
   const [selectedKecamatan, setSelectedKecamatan] = useState<string | null>(null);
+  const [showEquityDashboard, setShowEquityDashboard] = useState(false);
 
   useReachablePOIs();
   useTransitStops();
@@ -830,6 +833,25 @@ export default function AccessibilityMap() {
       </DeckGL>
 
       <MapLegend />
+
+      {/* Equity Summary floating button */}
+      <button
+        onClick={() => setShowEquityDashboard((v) => !v)}
+        className={`absolute bottom-4 left-4 z-20 px-3 py-2 text-xs font-semibold rounded-xl shadow-md border transition-colors ${
+          showEquityDashboard
+            ? "bg-violet-600 text-white border-violet-700"
+            : "bg-white/90 backdrop-blur-sm text-slate-700 border-slate-200 hover:bg-violet-50 hover:text-violet-700"
+        }`}
+      >
+        {showEquityDashboard ? "✕ Equity" : "📊 Equity Summary"}
+      </button>
+
+      {/* Equity Summary Dashboard */}
+      <AnimatePresence>
+        {showEquityDashboard && (
+          <EquityDashboard onClose={() => setShowEquityDashboard(false)} />
+        )}
+      </AnimatePresence>
 
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-10">
