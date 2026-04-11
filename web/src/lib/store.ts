@@ -12,42 +12,45 @@ export type LoadingStage =
   | "analyzing"
   | "done";
 
-// ===== Equity Quadrant System =====
-export type EquityQuadrant =
-  | "transit-desert"
-  | "transit-ideal"
-  | "over-served"
-  | "car-suburb";
+// ===== Equity Quadrant System (DATA_MODEL.md) =====
+// Q1: high need, high access — transit serves those who need it
+// Q2: low need, high access — over-served
+// Q3: low need, low access — car-dependent suburbs
+// Q4: high need, low access — transit deserts (priority)
+export type EquityQuadrant = "Q1" | "Q2" | "Q3" | "Q4";
 
 export const QUADRANT_COLORS: Record<EquityQuadrant, [number, number, number]> = {
-  "transit-desert": [220, 38, 38],   // red-600 — high need, low access
-  "transit-ideal": [22, 163, 74],    // green-600 — high need, high access
-  "over-served": [59, 130, 246],     // blue-500 — low need, high access
-  "car-suburb": [251, 191, 36],      // amber-400 — low need, low access
+  Q4: [220, 38, 38],    // red-600 — high need, low access (transit desert)
+  Q1: [22, 163, 74],    // green-600 — high need, high access (ideal)
+  Q2: [59, 130, 246],   // blue-500 — low need, high access (over-served)
+  Q3: [251, 191, 36],   // amber-400 — low need, low access (car suburb)
 };
 
 export const QUADRANT_LABELS: Record<EquityQuadrant, string> = {
-  "transit-desert": "Transit Desert",
-  "transit-ideal": "Transit Ideal",
-  "over-served": "Over-Served",
-  "car-suburb": "Car Suburb",
+  Q4: "Transit Desert",
+  Q1: "Transit Ideal",
+  Q2: "Over-Served",
+  Q3: "Car Suburb",
 };
 
 export const QUADRANT_EMOJI: Record<EquityQuadrant, string> = {
-  "transit-desert": "🔴",
-  "transit-ideal": "🟢",
-  "over-served": "🔵",
-  "car-suburb": "🟡",
+  Q4: "🔴",
+  Q1: "🟢",
+  Q2: "🔵",
+  Q3: "🟡",
 };
 
 export const QUADRANT_ACTION: Record<EquityQuadrant, string> = {
-  "transit-desert": "Priority investment needed — high demand, poor supply",
-  "transit-ideal": "Maintain & optimize — transit serves those who need it",
-  "over-served": "Redirect resources — capacity exceeds local demand",
-  "car-suburb": "Monitor — low demand, low supply, car-dependent",
+  Q4: "Priority investment needed — high demand, poor supply",
+  Q1: "Maintain & optimize — transit serves those who need it",
+  Q2: "Redirect resources — capacity exceeds local demand",
+  Q3: "Monitor — low demand, low supply, car-dependent",
 };
 
-// ===== POI Categories (12) =====
+// ===== Persona System (MVP-90) =====
+export type Persona = "commuter" | "explorer" | "researcher" | "planner" | null;
+
+// ===== POI Categories =====
 export const POI_CATEGORIES = [
   "hospital",
   "clinic",
@@ -65,20 +68,19 @@ export const POI_CATEGORIES = [
 
 export type POICategory = (typeof POI_CATEGORIES)[number];
 
-// ===== Color map for POI categories =====
 export const POI_COLORS: Record<POICategory, [number, number, number]> = {
-  hospital: [239, 68, 68], // red-500
-  clinic: [249, 115, 22], // orange-500
-  pharmacy: [236, 72, 153], // pink-500
-  restaurant: [245, 158, 11], // amber-500
-  cafe: [180, 83, 9], // amber-800 (brown)
-  market: [234, 179, 8], // yellow-500
-  supermarket: [34, 197, 94], // green-500
-  school: [59, 130, 246], // blue-500
-  university: [99, 102, 241], // indigo-500
-  park: [16, 185, 129], // emerald-500
-  worship: [168, 85, 247], // purple-500
-  bank: [100, 116, 139], // slate-500
+  hospital: [239, 68, 68],
+  clinic: [249, 115, 22],
+  pharmacy: [236, 72, 153],
+  restaurant: [245, 158, 11],
+  cafe: [180, 83, 9],
+  market: [234, 179, 8],
+  supermarket: [34, 197, 94],
+  school: [59, 130, 246],
+  university: [99, 102, 241],
+  park: [16, 185, 129],
+  worship: [168, 85, 247],
+  bank: [100, 116, 139],
 };
 
 export const POI_LABELS: Record<POICategory, string> = {
@@ -96,45 +98,89 @@ export const POI_LABELS: Record<POICategory, string> = {
   bank: "Bank",
 };
 
-// ===== Interfaces =====
+// ===== Zone Properties (DATA_MODEL.md schema) =====
+// Used for both H3 cells and kelurahan zones.
+// Optional fields are absent from one resolution level.
 
 export interface HexProperties {
-  h3_index: string;
-  // Legacy scoring
-  composite_score: number;
-  score_30min: number;
-  score_60min: number;
-  percentile_rank: number;
-  // POI counts per threshold
-  hospital_30min: number;
-  hospital_60min: number;
-  clinic_30min: number;
-  clinic_60min: number;
-  market_30min: number;
-  market_60min: number;
-  supermarket_30min: number;
-  supermarket_60min: number;
-  school_30min: number;
-  school_60min: number;
-  park_30min: number;
-  park_60min: number;
-  // Demand-side variables
-  pop_total: number;
-  pct_dependent: number;
-  pct_zero_vehicle: number;
-  // Socioeconomic
-  avg_njop: number;
-  is_informal_settlement: boolean;
-  // First-mile supply
-  dist_to_transit: number;
-  is_walkable_transit: boolean;
-  transit_capacity_weight: number;
-  // Destination accessibility
-  local_poi_density: number;
-  transit_shed_poi_count: number;
-  // Computed scores (0-100)
-  transit_need_score: number;
-  transit_accessibility_score: number;
+  // Identity
+  h3_index: string;                       // H3 cell ID or synthetic "kel_*"/"kec_*"
+  kelurahan_id?: string | null;
+  kelurahan_name?: string | null;
+  kecamatan_name?: string | null;
+  kota_kab_name?: string | null;
+
+  // H3-specific
+  h3_area_km2?: number | null;
+  is_edge_cell?: boolean | null;
+  kelurahan_ids?: string[] | null;
+  area_km2?: number | null;               // kelurahan area
+
+  // Need indicators (TNI)
+  population: number;
+  pop_density?: number | null;
+  poverty_rate?: number | null;
+  avg_household_expenditure?: number | null;
+  zero_vehicle_hh_pct?: number | null;
+  dependency_ratio?: number | null;
+  tni_score: number;
+
+  // Road network
+  road_length_km?: number | null;
+  road_density_km_per_km2?: number | null;
+  pct_primary_secondary?: number | null;
+  pct_residential_tertiary?: number | null;
+  pct_footway_pedestrian?: number | null;
+  avg_road_class_score?: number | null;
+  network_connectivity?: number | null;
+  road_adjusted_access?: number | null;
+
+  // Access indicators (TAI inputs)
+  n_transit_stops?: number | null;
+  n_transit_routes?: number | null;
+  avg_headway_min?: number | null;
+  min_dist_to_transit_m?: number | null;
+  transit_mode_diversity?: number | null;
+  best_mode_fare_tier?: number | null;
+  has_affordable_mode?: boolean | null;
+  has_feeder_service?: boolean | null;
+
+  // POI travel times (r5py)
+  poi_reach_cbd_min?: number | null;
+  poi_reach_hospital_min?: number | null;
+  poi_reach_school_min?: number | null;
+  poi_reach_market_min?: number | null;
+  poi_reach_industrial_min?: number | null;
+  poi_reach_govoffice_min?: number | null;
+
+  // TAI layer scores [0,1]
+  tai_l1_first_mile?: number | null;
+  tai_l2_service_quality?: number | null;
+  tai_l3_cbd_journey?: number | null;
+  tai_l4_last_mile?: number | null;
+  tai_l5_cost_competitiveness?: number | null;
+
+  // Fare
+  est_cbd_journey_fare_idr?: number | null;
+
+  // Generalized cost — Layer 5
+  gc_transit_idr?: number | null;
+  gc_car_idr?: number | null;
+  gc_motorcycle_idr?: number | null;
+  cheapest_private_mode?: "car" | "motorcycle" | null;
+  tcr_vs_car?: number | null;
+  tcr_vs_motorcycle?: number | null;
+  tcr_combined?: number | null;
+  transit_competitive_zone?: "transit_wins" | "swing" | "private_wins" | "transit_not_available" | null;
+  distance_to_sudirman_km?: number | null;
+
+  // Traffic (v2 — null by default)
+  avg_traffic_speed_kmh?: number | null;
+  peak_congestion_index?: number | null;
+  traffic_adjusted_access?: number | null;
+
+  // Composite & derived
+  tai_score: number;
   equity_gap: number;
   quadrant: EquityQuadrant;
 }
@@ -142,7 +188,7 @@ export interface HexProperties {
 export interface MapStats {
   avg_score: number;
   median_score: number;
-  total_hexes: number;
+  total_zones: number;
   h3_resolution: number;
   median_need: number;
   median_accessibility: number;
@@ -179,20 +225,20 @@ export interface TransitStop {
   distance_km?: number;
 }
 
+// Demographics — extracted from kelurahan zone properties
 export interface Demographics {
   h3_index: string;
-  kelurahan: string;
-  kecamatan: string;
-  city_code: string;
-  population_density: number;
-  total_population: number;
-  age_distribution: Record<string, number>;
-  dominant_age_group: string;
-  sex_ratio: number;
-  pct_dependent: number;
-  pct_zero_vehicle: number;
-  avg_njop: number;
-  bps_source?: string;
+  kelurahan_name: string;
+  kecamatan_name: string;
+  kota_kab_name: string;
+  pop_density: number;
+  population: number;
+  poverty_rate: number;
+  avg_household_expenditure: number;
+  zero_vehicle_hh_pct: number;
+  dependency_ratio: number;
+  kelurahan_id?: string | null;
+  area_km2?: number | null;
 }
 
 // ===== State Interface =====
@@ -202,9 +248,9 @@ interface AccessibilityState {
   loadingStage: LoadingStage | null;
   searchQuery: string;
   locationName: string;
+  selectedPersona: Persona;
 
   selectedHex: HexProperties | null;
-  threshold: 30 | 60;
   mapStats: MapStats | null;
   hexLayerVisible: boolean;
   h3Resolution: 7 | 8;
@@ -235,9 +281,9 @@ interface AccessibilityState {
   setLoadingStage: (stage: LoadingStage | null) => void;
   setSearchQuery: (q: string) => void;
   setLocationName: (name: string) => void;
+  setSelectedPersona: (p: Persona) => void;
 
   setSelectedHex: (hex: HexProperties | null) => void;
-  setThreshold: (t: 30 | 60) => void;
   setMapStats: (s: MapStats) => void;
   setHexLayerVisible: (v: boolean) => void;
   toggleHexLayer: () => void;
@@ -276,9 +322,9 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
   loadingStage: null,
   searchQuery: "",
   locationName: "",
+  selectedPersona: null,
 
   selectedHex: null,
-  threshold: 30,
   mapStats: null,
   hexLayerVisible: false,
   h3Resolution: 8,
@@ -309,9 +355,9 @@ export const useAccessibilityStore = create<AccessibilityState>((set) => ({
   setLoadingStage: (stage) => set({ loadingStage: stage }),
   setSearchQuery: (q) => set({ searchQuery: q }),
   setLocationName: (name) => set({ locationName: name }),
+  setSelectedPersona: (p) => set({ selectedPersona: p }),
 
   setSelectedHex: (hex) => set({ selectedHex: hex }),
-  setThreshold: (t) => set({ threshold: t }),
   setMapStats: (s) => set({ mapStats: s }),
   setHexLayerVisible: (v) => set({ hexLayerVisible: v }),
   toggleHexLayer: () =>

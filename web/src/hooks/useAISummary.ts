@@ -7,7 +7,6 @@ const H3_RESOLUTION = 8;
 
 export function useAISummary() {
   const selectedHex = useAccessibilityStore((s) => s.selectedHex);
-  const threshold = useAccessibilityStore((s) => s.threshold);
   const mapStats = useAccessibilityStore((s) => s.mapStats);
   const clickedCoordinate = useAccessibilityStore((s) => s.clickedCoordinate);
   const demographics = useAccessibilityStore((s) => s.demographics);
@@ -17,7 +16,6 @@ export function useAISummary() {
   const appendAISummary = useAccessibilityStore((s) => s.appendAISummary);
   const resetAI = useAccessibilityStore((s) => s.resetAI);
 
-  // Refs for values that should NOT retrigger the effect
   const demoRef = useRef(demographics);
   demoRef.current = demographics;
   const stopsRef = useRef(nearbyTransitStops);
@@ -30,8 +28,7 @@ export function useAISummary() {
   useEffect(() => {
     if (!selectedHex || !mapStats) return;
 
-    // Key includes threshold so re-analysis happens when user switches 30/60min
-    const key = `${selectedHex.h3_index}:${threshold}`;
+    const key = selectedHex.h3_index;
     if (prevKeyRef.current === key) return;
     prevKeyRef.current = key;
 
@@ -42,50 +39,48 @@ export function useAISummary() {
     const stops = stopsRef.current;
     const coord = coordRef.current;
 
-    const poiCounts: Record<string, number> = {
-      hospital: selectedHex[`hospital_${threshold}min`] ?? 0,
-      clinic: selectedHex[`clinic_${threshold}min`] ?? 0,
-      market: selectedHex[`market_${threshold}min`] ?? 0,
-      supermarket: selectedHex[`supermarket_${threshold}min`] ?? 0,
-      school: selectedHex[`school_${threshold}min`] ?? 0,
-      park: selectedHex[`park_${threshold}min`] ?? 0,
-    };
-
     const body: Record<string, unknown> = {
       h3_index: selectedHex.h3_index,
       h3_resolution: H3_RESOLUTION,
       lat: coord ? coord[1] : 0,
       lng: coord ? coord[0] : 0,
-      composite_score: selectedHex.composite_score ?? 0,
-      score_30min: selectedHex.score_30min ?? 0,
-      score_60min: selectedHex.score_60min ?? 0,
-      jabodetabek_avg_score: mapStats.avg_score,
-      jabodetabek_median_score: mapStats.median_score,
-      percentile_rank: selectedHex.percentile_rank ?? 0,
-      threshold,
-      poi_counts: poiCounts,
-      transit_need_score: selectedHex.transit_need_score ?? 0,
-      transit_accessibility_score: selectedHex.transit_accessibility_score ?? 0,
+      tai_score: selectedHex.tai_score ?? 0,
+      tni_score: selectedHex.tni_score ?? 0,
       equity_gap: selectedHex.equity_gap ?? 0,
-      quadrant: selectedHex.quadrant ?? "car-suburb",
-      pop_total: selectedHex.pop_total ?? 0,
-      pct_dependent: selectedHex.pct_dependent ?? 0,
-      pct_zero_vehicle: selectedHex.pct_zero_vehicle ?? 0,
-      avg_njop: selectedHex.avg_njop ?? 0,
-      dist_to_transit: selectedHex.dist_to_transit ?? 999,
-      local_poi_density: selectedHex.local_poi_density ?? 0,
-      transit_shed_poi_count: selectedHex.transit_shed_poi_count ?? 0,
+      quadrant: selectedHex.quadrant ?? "Q3",
+      jabodetabek_avg_tai: mapStats.avg_score,
+      jabodetabek_median_tai: mapStats.median_score,
+      // 5-layer breakdown
+      tai_l1: selectedHex.tai_l1_first_mile ?? null,
+      tai_l2: selectedHex.tai_l2_service_quality ?? null,
+      tai_l3: selectedHex.tai_l3_cbd_journey ?? null,
+      tai_l4: selectedHex.tai_l4_last_mile ?? null,
+      tai_l5: selectedHex.tai_l5_cost_competitiveness ?? null,
+      // Supply indicators
+      n_transit_stops: selectedHex.n_transit_stops ?? null,
+      avg_headway_min: selectedHex.avg_headway_min ?? null,
+      min_dist_to_transit_m: selectedHex.min_dist_to_transit_m ?? null,
+      transit_mode_diversity: selectedHex.transit_mode_diversity ?? null,
+      poi_reach_cbd_min: selectedHex.poi_reach_cbd_min ?? null,
+      // Cost competitiveness
+      tcr_combined: selectedHex.tcr_combined ?? null,
+      transit_competitive_zone: selectedHex.transit_competitive_zone ?? null,
+      // Need-side
+      population: selectedHex.population ?? 0,
+      poverty_rate: selectedHex.poverty_rate ?? null,
+      zero_vehicle_hh_pct: selectedHex.zero_vehicle_hh_pct ?? null,
+      dependency_ratio: selectedHex.dependency_ratio ?? null,
     };
 
     if (demo) {
       body.demographics = {
-        population_density: demo.population_density,
-        total_population: demo.total_population,
-        age_distribution: demo.age_distribution,
-        dominant_age_group: demo.dominant_age_group,
-        kelurahan: demo.kelurahan,
-        kecamatan: demo.kecamatan,
-        sex_ratio: demo.sex_ratio,
+        kelurahan_name: demo.kelurahan_name,
+        kecamatan_name: demo.kecamatan_name,
+        kota_kab_name: demo.kota_kab_name,
+        pop_density: demo.pop_density,
+        population: demo.population,
+        poverty_rate: demo.poverty_rate,
+        zero_vehicle_hh_pct: demo.zero_vehicle_hh_pct,
       };
     }
 
@@ -120,5 +115,5 @@ export function useAISummary() {
         setAILoading(false);
       });
 
-  }, [selectedHex?.h3_index, threshold, mapStats]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedHex?.h3_index, mapStats]); // eslint-disable-line react-hooks/exhaustive-deps
 }

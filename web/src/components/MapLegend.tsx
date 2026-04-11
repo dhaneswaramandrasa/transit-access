@@ -10,18 +10,13 @@ import {
 } from "@/lib/store";
 
 const QUADRANT_SHORT: Record<EquityQuadrant, string> = {
-  "transit-desert": "Priority",
-  "transit-ideal": "Protect",
-  "over-served": "Monetize",
-  "car-suburb": "Low Priority",
+  Q4: "Priority",
+  Q1: "Protect",
+  Q2: "Monetize",
+  Q3: "Low Priority",
 };
 
-const QUADRANT_ORDER: EquityQuadrant[] = [
-  "transit-desert",
-  "transit-ideal",
-  "over-served",
-  "car-suburb",
-];
+const QUADRANT_ORDER: EquityQuadrant[] = ["Q4", "Q1", "Q2", "Q3"];
 
 const MODE_LABELS: Record<BoundaryMode, string> = {
   kelurahan: "Kelurahan",

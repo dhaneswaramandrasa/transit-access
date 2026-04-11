@@ -9,7 +9,6 @@ const WALK_SPEED_KMH = 4.8;
 export function useTransitStops() {
   const {
     clickedCoordinate,
-    threshold,
     allTransitStops,
     setAllTransitStops,
     setNearbyTransitStops,
@@ -61,7 +60,7 @@ export function useTransitStops() {
     }
 
     const [lng, lat] = clickedCoordinate;
-    const maxDistKm = (threshold / 60) * WALK_SPEED_KMH;
+    const maxDistKm = (30 / 60) * WALK_SPEED_KMH;
 
     const nearby = allTransitStops
       .map((stop) => {
@@ -80,5 +79,5 @@ export function useTransitStops() {
       .sort((a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0));
 
     setNearbyTransitStops(nearby);
-  }, [clickedCoordinate, threshold, allTransitStops, setNearbyTransitStops]);
+  }, [clickedCoordinate, allTransitStops, setNearbyTransitStops]);
 }

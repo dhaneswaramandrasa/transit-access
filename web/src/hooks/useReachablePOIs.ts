@@ -16,7 +16,6 @@ export function useReachablePOIs() {
     selectedHex,
     clickedCoordinate,
     allPOIs,
-    threshold,
     setReachablePOIs,
     setSelectedPOI,
     clearRoutes,
@@ -34,7 +33,7 @@ export function useReachablePOIs() {
     const [lng, lat] = clickedCoordinate;
 
     // Step 1: Immediately show pre-loaded POIs (instant)
-    const preloadedReachable = findReachablePOIs(allPOIs, lat, lng, threshold);
+    const preloadedReachable = findReachablePOIs(allPOIs, lat, lng, 30);
     setReachablePOIs(preloadedReachable);
     setSelectedPOI(null);
     setActiveRouteId(null);
@@ -45,7 +44,7 @@ export function useReachablePOIs() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const radiusMeters = Math.round((threshold / 60) * WALK_SPEED_KMH * 1000);
+    const radiusMeters = Math.round((30 / 60) * WALK_SPEED_KMH * 1000);
 
     fetch(`/api/pois?lat=${lat}&lng=${lng}&radius=${radiusMeters}`, {
       signal: controller.signal,
@@ -83,7 +82,7 @@ export function useReachablePOIs() {
           ];
 
           // Filter by distance and update
-          const reachable = findReachablePOIs(merged, lat, lng, threshold);
+          const reachable = findReachablePOIs(merged, lat, lng, 30);
           setReachablePOIs(reachable);
         }
       )
@@ -102,7 +101,7 @@ export function useReachablePOIs() {
     clickedCoordinate?.[0],
     clickedCoordinate?.[1],
     allPOIs.length,
-    threshold,
+    30,
     setReachablePOIs,
     setSelectedPOI,
     setActiveRouteId,

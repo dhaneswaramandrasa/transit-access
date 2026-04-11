@@ -3,16 +3,17 @@ import { interpolateRdYlGn } from "d3-scale-chromatic";
 import type { EquityQuadrant } from "./store";
 import { QUADRANT_COLORS } from "./store";
 
-const scale = scaleSequential(interpolateRdYlGn).domain([0, 100]);
+// TAI score is [0,1] per DATA_MODEL.md
+const scale = scaleSequential(interpolateRdYlGn).domain([0, 1]);
 
 /**
- * Convert a 0–100 accessibility score to an [R, G, B, A] color array.
+ * Convert a [0,1] TAI score to an [R, G, B, A] color array.
  */
 export function scoreToColor(
   score: number,
   alpha: number = 170
 ): [number, number, number, number] {
-  const clamped = Math.max(0, Math.min(100, score));
+  const clamped = Math.max(0, Math.min(1, score));
   const rgb = scale(clamped);
 
   if (!rgb) return [128, 128, 128, alpha];
