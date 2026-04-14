@@ -3,6 +3,9 @@
 import { motion } from "framer-motion";
 import { useAccessibilityStore, QUADRANT_LABELS, QUADRANT_COLORS, type Persona } from "@/lib/store";
 import CardGrid from "./results/CardGrid";
+import CommuterLens from "./results/lenses/CommuterLens";
+import ResearcherLens from "./results/lenses/ResearcherLens";
+import PlannerLens from "./results/lenses/PlannerLens";
 
 interface SideNavItem {
   icon: string;
@@ -171,9 +174,19 @@ export default function ResultsLayout() {
           </div>
         </header>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <CardGrid />
+        {/* Content — persona-specific lens or default CardGrid */}
+        <div className="flex-1 relative overflow-hidden">
+          {selectedPersona === "commuter" ? (
+            <CommuterLens />
+          ) : selectedPersona === "researcher" ? (
+            <ResearcherLens />
+          ) : selectedPersona === "planner" ? (
+            <PlannerLens />
+          ) : (
+            <div className="h-full overflow-y-auto p-4">
+              <CardGrid />
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
