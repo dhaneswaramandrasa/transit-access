@@ -2,24 +2,53 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
-import { useAccessibilityStore, type BoundaryMode } from "@/lib/store";
-import SearchBar from "./SearchBar";
+import { useAccessibilityStore, type Persona } from "@/lib/store";
 
-type Category = "administrative" | "hex" | null;
+const STORAGE_KEY = "jtm_persona";
+
+interface PersonaCard {
+  id: Persona;
+  icon: string;
+  label: string;
+  description: string;
+  highlighted?: boolean;
+}
+
+const PERSONA_CARDS: PersonaCard[] = [
+  {
+    id: "commuter",
+    icon: "train",
+    label: "Commuter",
+    description: "Plan multi-modal journeys with real-time sync for everyday travel.",
+  },
+  {
+    id: "planner",
+    icon: "dashboard",
+    label: "Planner & Ops",
+    description: "Identify underinvestment and simulate expansion scenarios.",
+    highlighted: true,
+  },
+  {
+    id: "researcher",
+    icon: "biotech",
+    label: "Researcher",
+    description: "Deep dive into Gini coefficients and spatial resolution effects.",
+  },
+];
 
 export default function LandingOverlay() {
   const appPhase = useAccessibilityStore((s) => s.appPhase);
-  const boundaryMode = useAccessibilityStore((s) => s.boundaryMode);
-  const setBoundaryMode = useAccessibilityStore((s) => s.setBoundaryMode);
-  const setHexLayerVisible = useAccessibilityStore((s) => s.setHexLayerVisible);
-  const setH3Resolution = useAccessibilityStore((s) => s.setH3Resolution);
-  const [category, setCategory] = useState<Category>(null);
+  const setSelectedPersona = useAccessibilityStore((s) => s.setSelectedPersona);
+  const setAppPhase = useAccessibilityStore((s) => s.setAppPhase);
+  const [hoveredPersona, setHoveredPersona] = useState<Persona>(null);
 
-  const handleChooseMode = (mode: BoundaryMode, resolution?: 7 | 8) => {
-    setBoundaryMode(mode);
-    if (resolution) setH3Resolution(resolution);
-    setHexLayerVisible(true);
+  const handleStartAnalysis = (persona: Persona) => {
+    const chosen = persona ?? hoveredPersona ?? null;
+    setSelectedPersona(chosen);
+    if (chosen !== null) {
+      localStorage.setItem(STORAGE_KEY, chosen);
+    }
+    setAppPhase("loading");
   };
 
   return (
@@ -31,205 +60,174 @@ export default function LandingOverlay() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4 }}
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none"
+          className="absolute inset-0 z-20 flex flex-col overflow-hidden"
         >
-          {/* Gradient overlay for readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/30 to-transparent pointer-events-none" />
+          {/* Outer Glow Border Frame */}
+          <div className="fixed inset-4 pointer-events-none z-50 rounded-2xl glow-border" />
 
-          <div className="relative z-10 flex flex-col items-center gap-6 pointer-events-auto px-4">
-            {/* Title */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="text-center"
-            >
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
-                Transit Equity
-              </h1>
-              <h2 className="text-4xl md:text-5xl font-bold text-blue-600 tracking-tight mt-1">
-                in Jabodetabek
-              </h2>
-              <p className="text-sm text-slate-500 mt-3 leading-relaxed max-w-xs">
-                Explore transit accessibility and equity gaps across Jakarta, Bogor, Depok, Tangerang &amp; Bekasi
-              </p>
-              <p className="text-xs text-slate-400 mt-2 tracking-wide uppercase">
-                Jabodetabek, Indonesia
-              </p>
-            </motion.div>
+          {/* H3 hex pattern + gradient overlay */}
+          <div className="absolute inset-0 h3-overlay opacity-40 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-surface via-transparent to-surface/20 pointer-events-none" />
 
-            {/* Boundary Mode Chooser — Two-level */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35, duration: 0.5 }}
-              className="w-full max-w-md"
-            >
-              <p className="text-xs text-slate-400 text-center mb-2 uppercase tracking-wider font-medium">
-                Choose Boundary Type
-              </p>
+          {/* Top Navigation */}
+          <nav className="relative z-50 flex justify-between items-center px-12 h-20 bg-transparent">
+            <div className="flex items-center gap-10">
+              <span className="text-xl font-black text-primary tracking-tighter font-headline">
+                JTEM
+              </span>
+              <div className="hidden md:flex items-center gap-8">
+                {(["Methodology", "Research Paper", "Contact"] as const).map((link) => (
+                  <a
+                    key={link}
+                    href="#"
+                    className="text-on-surface/60 font-medium text-xs uppercase tracking-widest hover:text-primary transition-colors"
+                  >
+                    {link}
+                  </a>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <button className="p-2 text-on-surface/50 hover:text-on-surface transition-colors">
+                <span className="material-symbols-outlined">light_mode</span>
+              </button>
+              <button
+                onClick={() => handleStartAnalysis(null)}
+                className="bg-primary text-on-primary px-5 py-2 rounded-sm font-label text-xs font-bold tracking-widest hover:brightness-110 transition-all uppercase"
+              >
+                Enter Engine
+              </button>
+            </div>
+          </nav>
 
-              {/* Level 1: Administrative vs Hex */}
-              <div className="flex gap-3 mb-2">
-                <button
-                  onClick={() => setCategory(category === "administrative" ? null : "administrative")}
-                  className={`flex-1 rounded-xl p-3 border-2 transition-all text-left ${
-                    category === "administrative"
-                      ? "border-blue-500 bg-blue-50/80 shadow-md"
-                      : "border-slate-200 bg-white/70 hover:border-blue-300 hover:bg-white/90"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                    </svg>
-                    <span className="text-sm font-semibold text-slate-800">Administrative</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                    Official government boundaries from BIG
-                  </p>
-                </button>
-                <button
-                  onClick={() => setCategory(category === "hex" ? null : "hex")}
-                  className={`flex-1 rounded-xl p-3 border-2 transition-all text-left ${
-                    category === "hex"
-                      ? "border-blue-500 bg-blue-50/80 shadow-md"
-                      : "border-slate-200 bg-white/70 hover:border-blue-300 hover:bg-white/90"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l8 4.5v9L12 22l-8-6.5v-9L12 2z" />
-                    </svg>
-                    <span className="text-sm font-semibold text-slate-800">H3 Hex Grid</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                    Uniform hexagonal grid for precise analysis
-                  </p>
-                </button>
+          {/* Floating Search Bar */}
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-6 pointer-events-auto">
+            <div className="bg-surface/60 backdrop-blur-xl border border-white/10 rounded-lg flex items-center px-4 py-3 gap-4 shadow-2xl">
+              <span className="material-symbols-outlined text-on-surface/40">search</span>
+              <input
+                className="bg-transparent border-none outline-none flex-1 text-sm font-label tracking-wide placeholder:text-on-surface/30 text-on-surface focus:ring-0"
+                placeholder="Search by Kelurahan, H3 Hex, or Coordinates..."
+                type="text"
+              />
+              <span className="material-symbols-outlined text-on-surface/40 text-lg">
+                my_location
+              </span>
+            </div>
+          </div>
+
+          {/* Main Central Panel */}
+          <main className="flex-1 relative z-10 flex items-center justify-center px-8 pb-12 pt-4">
+            <div className="main-glass-panel w-full max-w-5xl rounded-2xl p-12 md:p-16 flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
+              {/* Map Mode Badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full mb-10 border border-white/10">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary status-dot" />
+                <span className="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">
+                  Map Interactive Mode
+                </span>
               </div>
 
-              {/* Level 2: Sub-options */}
-              <AnimatePresence mode="wait">
-                {category === "administrative" && (
-                  <motion.div
-                    key="admin-sub"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="overflow-hidden"
+              {/* Headline */}
+              <h1 className="text-4xl md:text-6xl font-black tracking-tighter font-headline mb-4 max-w-3xl leading-tight text-on-surface">
+                A Data-Driven Diagnostic for <br />
+                <span className="text-primary italic">Transit Equity</span> in Jabodetabek
+              </h1>
+              <p className="text-on-surface-variant text-sm md:text-base max-w-2xl mb-16 leading-relaxed opacity-80">
+                Click anywhere on the map to begin spatial diagnostics for Indonesia&apos;s capital
+                region. Visualize connectivity, identify deserts, and simulate infrastructure impact.
+              </p>
+
+              {/* Persona Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-16">
+                {PERSONA_CARDS.map((card) => (
+                  <div
+                    key={card.id}
+                    className={`card-glass p-6 rounded-xl text-left group cursor-pointer ${
+                      card.highlighted ? "border-primary/30" : ""
+                    }`}
+                    onMouseEnter={() => setHoveredPersona(card.id)}
+                    onMouseLeave={() => setHoveredPersona(null)}
+                    onClick={() => handleStartAnalysis(card.id)}
                   >
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        onClick={() => handleChooseMode("kelurahan")}
-                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
-                          boundaryMode === "kelurahan"
-                            ? "border-blue-400 bg-blue-50 shadow-sm"
-                            : "border-slate-200 bg-white/70 hover:border-blue-300"
+                    <div className="flex items-center gap-3 mb-4">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          card.highlighted ? "bg-primary/20" : "bg-primary/10"
                         }`}
                       >
-                        <span className="text-xs font-semibold text-slate-700">Kelurahan</span>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Village level (~1,500 areas)</p>
-                      </button>
-                      <button
-                        onClick={() => handleChooseMode("kecamatan")}
-                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
-                          boundaryMode === "kecamatan"
-                            ? "border-blue-400 bg-blue-50 shadow-sm"
-                            : "border-slate-200 bg-white/70 hover:border-blue-300"
-                        }`}
-                      >
-                        <span className="text-xs font-semibold text-slate-700">Kecamatan</span>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Sub-district level (~185 areas)</p>
-                      </button>
+                        <span className="material-symbols-outlined text-primary text-lg">
+                          {card.icon}
+                        </span>
+                      </div>
+                      <span className="font-label text-[10px] uppercase tracking-widest font-bold text-on-surface-variant group-hover:text-primary transition-colors">
+                        {card.label}
+                      </span>
                     </div>
-                  </motion.div>
-                )}
-                {category === "hex" && (
-                  <motion.div
-                    key="hex-sub"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        onClick={() => handleChooseMode("hex", 8)}
-                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
-                          boundaryMode === "hex" && useAccessibilityStore.getState().h3Resolution === 8
-                            ? "border-blue-400 bg-blue-50 shadow-sm"
-                            : "border-slate-200 bg-white/70 hover:border-blue-300"
-                        }`}
-                      >
-                        <span className="text-xs font-semibold text-slate-700">Small Hex</span>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Res 8 · ~0.74 km² each</p>
-                      </button>
-                      <button
-                        onClick={() => handleChooseMode("hex", 7)}
-                        className={`flex-1 rounded-lg p-2.5 border transition-all ${
-                          boundaryMode === "hex" && useAccessibilityStore.getState().h3Resolution === 7
-                            ? "border-blue-400 bg-blue-50 shadow-sm"
-                            : "border-slate-200 bg-white/70 hover:border-blue-300"
-                        }`}
-                      >
-                        <span className="text-xs font-semibold text-slate-700">Large Hex</span>
-                        <p className="text-[9px] text-slate-400 mt-0.5">Res 7 · ~5.16 km² each</p>
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+                    <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-2">
+                      {card.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
-            {/* Search Bar */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-              className="w-full max-w-md"
-            >
-              <SearchBar />
-            </motion.div>
+              {/* Action Area */}
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                <button
+                  onClick={() => handleStartAnalysis(null)}
+                  className="bg-primary text-on-primary px-10 py-4 rounded-sm font-label text-sm font-black tracking-[0.2em] uppercase hover:brightness-110 transition-all shadow-[0_0_30px_rgba(111,216,200,0.2)]"
+                >
+                  Start Analysis
+                </button>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] tracking-widest text-on-surface/40 uppercase">
+                    {hoveredPersona ? `Selected: ${hoveredPersona}` : "Waiting for input..."}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </main>
 
-            {/* Hint */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
-              className="text-sm text-slate-400 flex items-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
-                />
-              </svg>
-              Or click anywhere on the map
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.9, duration: 0.5 }}
-            >
-              <Link
-                href="/methodology"
-                className="text-xs text-blue-500 hover:text-blue-700 underline underline-offset-2"
-              >
-                How does the scoring work?
-              </Link>
-            </motion.div>
-          </div>
+          {/* Bottom Stats Footer */}
+          <footer className="relative z-50 flex flex-col md:flex-row justify-between items-center px-12 py-6 bg-surface/80 backdrop-blur-md border-t border-white/5">
+            <div className="flex gap-12 mb-4 md:mb-0">
+              <div className="flex flex-col">
+                <span className="font-label text-[9px] uppercase tracking-widest text-on-surface/40">
+                  Population
+                </span>
+                <span className="font-mono text-sm font-bold text-on-surface">30.4M</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-label text-[9px] uppercase tracking-widest text-on-surface/40">
+                  Kelurahan
+                </span>
+                <span className="font-mono text-sm font-bold text-on-surface">2,670</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-label text-[9px] uppercase tracking-widest text-on-surface/40">
+                  Transit Desert
+                </span>
+                <span className="font-mono text-sm font-bold text-primary">42%</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-8">
+              <span className="font-mono text-[9px] text-on-surface/30 uppercase tracking-[0.2em]">
+                EPSG:3857 | Jabodetabek Metropolitan Area
+              </span>
+              <div className="flex items-center gap-4 border-l border-white/10 pl-8">
+                <a
+                  href="#"
+                  className="text-on-surface/40 text-[9px] uppercase tracking-widest hover:text-on-surface transition-colors"
+                >
+                  Privacy
+                </a>
+                <a
+                  href="#"
+                  className="text-on-surface/40 text-[9px] uppercase tracking-widest hover:text-on-surface transition-colors"
+                >
+                  API
+                </a>
+              </div>
+            </div>
+          </footer>
         </motion.div>
       )}
     </AnimatePresence>

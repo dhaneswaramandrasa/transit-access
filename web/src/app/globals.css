@@ -8,43 +8,86 @@ body,
   height: 100%;
   margin: 0;
   padding: 0;
-  background: #f8fafc;
-  color: #1e293b;
+  background: #111125;
+  color: #e2e0fc;
 }
 
-/* ===== Glassmorphism Utility ===== */
+/* ===== Material Symbols ===== */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+/* ===== Glassmorphism Utilities ===== */
 @layer components {
+  .glass-panel {
+    background: rgba(15, 15, 26, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .main-glass-panel {
+    background: rgba(15, 15, 31, 0.7);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .card-glass {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .card-glass:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #6fd8c8;
+    transform: translateY(-2px);
+  }
+
+  .glow-border {
+    box-shadow:
+      0 0 0 1px rgba(124, 58, 237, 0.3),
+      0 0 20px rgba(34, 211, 238, 0.1),
+      inset 0 0 15px rgba(124, 58, 237, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  /* Legacy aliases kept for compatibility */
   .glass {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.05),
-      0 10px 15px -3px rgba(0, 0, 0, 0.05);
-  }
-
-  .glass-strong {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.08),
-      0 2px 8px rgba(0, 0, 0, 0.04);
-  }
-
-  .glass-dark {
-    background: rgba(15, 23, 42, 0.65);
+    background: rgba(15, 15, 26, 0.72);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    color: #f8fafc;
+  }
+
+  .glass-strong {
+    background: rgba(15, 15, 26, 0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-dark {
+    background: rgba(12, 12, 31, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e2e0fc;
   }
 }
 
-/* ===== Scrollbar — light theme ===== */
+/* ===== H3 Hex background pattern ===== */
+.h3-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='104' viewBox='0 0 60 104' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 17.32v34.64L30 69.28 0 51.96V17.32L30 0z' fill-opacity='0.02' fill='%236fd8c8' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* ===== Status Dot ===== */
+.status-dot {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ===== Dark Scrollbar ===== */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -52,32 +95,20 @@ body,
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(111, 216, 200, 0.3);
 }
 
 /* ===== Animation Delays ===== */
-.delay-100 {
-  animation-delay: 100ms;
-}
-.delay-200 {
-  animation-delay: 200ms;
-}
-.delay-300 {
-  animation-delay: 300ms;
-}
-.delay-400 {
-  animation-delay: 400ms;
-}
-.delay-500 {
-  animation-delay: 500ms;
-}
-.delay-600 {
-  animation-delay: 600ms;
-}
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
 
 /* ===== Score Colors ===== */
 :root {
